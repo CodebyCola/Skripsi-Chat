@@ -1,34 +1,227 @@
-body {
-  background: #090d16;
-  color: #f8fafc;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  margin: 0;
-  padding: 0;
+@import "tailwindcss";
+
+@theme {
+  /* Color Palette — SkripsiChat Earthy Botanic & Sage Shield */
+  --color-surface-container-low: #e9f7ef;
+  --color-security-info: #3A758C;
+  --color-surface-container-high: #deebe3;
+  --color-on-surface-variant: #414944;
+  --color-inverse-on-surface: #e6f4ec;
+  --color-on-secondary-container: #5b635f;
+  --color-surface-variant: #d8e6de;
+  --color-security-warning: #C67D34;
+  --color-text-muted: #8FA39A;
+  --color-secondary-fixed: #dce4df;
+  --color-on-primary-container: #9fcfb6;
+  --color-surface-tint: #3a6752;
+  --color-on-background: #121e19;
+  --color-surface-bright: #effdf4;
+  --color-surface: #FFFFFF;
+  --color-on-surface: #121e19;
+  --color-on-secondary: #ffffff;
+  --color-border-subtle: #E3EAE6;
+  --color-surface-container-highest: #d8e6de;
+  --color-tertiary-fixed-dim: #88d6af;
+  --color-tertiary: #00442c;
+  --color-primary-container: #2d5a46;
+  --color-background: #effdf4;
+  --color-on-error: #ffffff;
+  --color-on-primary-fixed-variant: #224f3c;
+  --color-secondary-container: #d7dfda;
+  --color-canvas: #F9FBF9;
+  --color-primary-fixed-dim: #a1d1b8;
+  --color-primary-fixed: #bceed3;
+  --color-outline: #717973;
+  --color-on-primary: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-text-secondary: #5F756B;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #005e3f;
+  --color-surface-container: #e3f1e9;
+  --color-security-danger: #BA4343;
+  --color-inverse-surface: #27332e;
+  --color-on-primary-fixed: #002114;
+  --color-secondary: #58605c;
+  --color-on-error-container: #93000a;
+  --color-surface-dim: #cfddd5;
+  --color-on-secondary-fixed: #161d1a;
+  --color-surface-container-lowest: #ffffff;
+  --color-inverse-primary: #a1d1b8;
+  --color-error: #ba1a1a;
+  --color-on-secondary-fixed-variant: #414845;
+  --color-secondary-fixed-dim: #c0c8c4;
+  --color-outline-variant: #c0c9c2;
+  --color-on-tertiary-container: #87d5ad;
+  --color-on-tertiary-fixed: #002113;
+  --color-primary: #134230;
+  --color-on-tertiary-fixed-variant: #005236;
+  --color-tertiary-fixed: #a4f3ca;
+
+  /* Named Spacing Tokens */
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2rem;
+  --spacing-margin: 1rem;
+  --spacing-margin-tablet: 1.5rem;
+  --spacing-margin-desktop: 2rem;
+  --spacing-gutter: 1rem;
+  --spacing-gutter-desktop: 1.5rem;
+
+  /* Font Families */
+  --font-headline-xl: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-headline-lg: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-headline-xl-mobile: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-headline-lg-mobile: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-headline-md: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-headline-sm: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body-lg: "Inter", system-ui, sans-serif;
+  --font-body-md: "Inter", system-ui, sans-serif;
+  --font-body-sm: "Inter", system-ui, sans-serif;
+  --font-label-lg: "Inter", system-ui, sans-serif;
+  --font-label-md: "Inter", system-ui, sans-serif;
+  --font-label-sm: "Inter", system-ui, sans-serif;
+  --font-code-md: "JetBrains Mono", ui-monospace, monospace;
+  --font-code-sm: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Font Sizes & Line Heights */
+  --text-headline-xl: 36px;
+  --text-headline-xl--line-height: 44px;
+  --text-headline-xl--letter-spacing: -0.025em;
+  --text-headline-xl--font-weight: 700;
+
+  --text-headline-lg: 30px;
+  --text-headline-lg--line-height: 38px;
+  --text-headline-lg--letter-spacing: -0.02em;
+  --text-headline-lg--font-weight: 700;
+
+  --text-headline-xl-mobile: 28px;
+  --text-headline-xl-mobile--line-height: 36px;
+  --text-headline-xl-mobile--letter-spacing: -0.02em;
+  --text-headline-xl-mobile--font-weight: 700;
+
+  --text-headline-lg-mobile: 24px;
+  --text-headline-lg-mobile--line-height: 32px;
+  --text-headline-lg-mobile--letter-spacing: -0.015em;
+  --text-headline-lg-mobile--font-weight: 600;
+
+  --text-headline-md: 22px;
+  --text-headline-md--line-height: 30px;
+  --text-headline-md--letter-spacing: -0.015em;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 18px;
+  --text-headline-sm--line-height: 26px;
+  --text-headline-sm--letter-spacing: -0.01em;
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 26px;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 14px;
+  --text-body-md--line-height: 22px;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 19px;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-lg: 14px;
+  --text-label-lg--line-height: 20px;
+  --text-label-lg--font-weight: 600;
+
+  --text-label-md: 12px;
+  --text-label-md--line-height: 16px;
+  --text-label-md--font-weight: 600;
+
+  --text-label-sm: 11px;
+  --text-label-sm--line-height: 14px;
+  --text-label-sm--font-weight: 500;
+
+  --text-code-md: 12px;
+  --text-code-md--line-height: 18px;
+  --text-code-md--font-weight: 400;
+
+  --text-code-sm: 11px;
+  --text-code-sm--line-height: 16px;
+  --text-code-sm--font-weight: 400;
 }
 
-input, select, textarea {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
-  border: 1px solid #334155;
-  background: #0f172a;
-  color: #f8fafc;
-  margin-top: 4px;
-  margin-bottom: 12px;
+@keyframes scanRay {
+  0% {
+    top: 12%;
+    opacity: 0.2;
+  }
+  50% {
+    top: 82%;
+    opacity: 0.9;
+  }
+  100% {
+    top: 12%;
+    opacity: 0.2;
+  }
 }
 
-button {
-  cursor: pointer;
-  padding: 9px 16px;
-  border-radius: 8px;
-  border: none;
-  font-weight: 600;
-  background: #0284c7;
-  color: white;
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
 }
 
-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  background: #334155;
+/* Scope default styles so SkripsiChat light-sage UI is pristine while legacy /dashboard pages retain their dark styling */
+@layer base {
+  html:has(.skripsichat-auth),
+  body:has(.skripsichat-auth) {
+    background-color: #F9FBF9;
+    color: #121e19;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+  }
+
+  body:not(:has(.skripsichat-auth)) {
+    background: #090d16;
+    color: #f8fafc;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  body:not(:has(.skripsichat-auth)) :where(input, select, textarea) {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #f8fafc;
+    margin-top: 4px;
+    margin-bottom: 12px;
+  }
+
+  body:not(:has(.skripsichat-auth)) :where(button) {
+    cursor: pointer;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    background: #0284c7;
+    color: white;
+  }
+
+  body:not(:has(.skripsichat-auth)) :where(button:disabled) {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: #334155;
+  }
 }
