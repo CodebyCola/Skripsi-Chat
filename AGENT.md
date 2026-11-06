@@ -65,19 +65,60 @@ Dokumen ini adalah **petunjuk utama (System Context & Rules of Engagement)** unt
 
 ---
 
-## 5. Cara Menjalankan & Memverifikasi Repositori
+## 5. Struktur Modular Client (Feature-Based Architecture)
+
+Direktori `client/src` diorganisir berbasis **Fitur (Feature-Sliced)** untuk kemudahan pemeliharaan (*maintainability*), *debugging*, dan *scalability*:
+
+```
+client/src/
+├── app/                             # Next.js App Router (Hanya routing & layout tipis)
+│   ├── layout.tsx                   # Root layout, Google Fonts & Material Symbols
+│   ├── globals.css                  # Tailwind v4 theme, Earthy Sage palette, keyframes
+│   ├── page.tsx                     # Renders <LoginPage /> dari @/features/login
+│   ├── register/page.tsx            # Renders <RegisterCard /> dari @/features/register
+│   └── dashboard/
+│       ├── page.tsx                 # Renders <DashboardOverview /> dari @/features/dashboard
+│       ├── messages/page.tsx        # Renders <MessagesView /> dari @/features/messages
+│       ├── files/page.tsx           # Renders <FilesView /> dari @/features/files
+│       ├── stego/page.tsx           # Renders <StegoView /> dari @/features/stego
+│       ├── db-view/page.tsx         # Renders <DbInspectorView /> dari @/features/db-inspector
+│       └── blockchain/page.tsx      # Renders <BlockchainView /> dari @/features/blockchain
+│
+├── features/                        # Modul Domain / Fitur Utama
+│   ├── login/                       # Fitur Autentikasi 3-Tahap
+│   │   ├── actions/                 # authActions
+│   │   ├── api/                     # authApi (checkStatus, verifyFace, login)
+│   │   ├── components/              # AuthHeader, AuthFooter, AuthShowcase, StepperNav, DongleStatusCard, WebcamViewport, SecurityProofMatrix
+│   │   ├── forms/                   # Step1CredentialForm, Step2BiometricVerification, Step3VerifiedCard
+│   │   ├── hooks/                   # useLoginForm, useDongleStatus, useWebcamScanner
+│   │   ├── types/                   # auth.types.ts
+│   │   └── constants/               # auth.constants.ts (artworks, defaults)
+│   ├── dashboard/                   # Fitur Dashboard Navigasi & Modul
+│   ├── messages/                    # Fitur Super Enkripsi Pesan
+│   ├── files/                       # Fitur Transfer Berkas ChaCha20-Poly1305
+│   ├── stego/                       # Fitur Steganografi LSB PNG
+│   ├── db-inspector/                # Fitur Keamanan Database-at-Rest
+│   ├── blockchain/                  # Fitur Blockchain Audit Ledger SHA-256
+│   └── register/                    # Fitur Panduan Pendaftaran Dongle & Wajah
+│
+└── lib/                             # Shared utilities (apiClient, biometric 128-float extractor)
+```
+
+---
+
+## 6. Cara Menjalankan & Memverifikasi Repositori
 * **Jalankan Unit & Integration Tests**:
   ```powershell
-  cd D:\dev\webdev\project\kriptografi\AegisVault\server
+  cd D:\dev\webdev\project\kriptografi\SkripsiChat\server
   npm test
   ```
 * **Jalankan Backend Server (:4000)**:
   ```powershell
-  cd D:\dev\webdev\project\kriptografi\AegisVault\server
+  cd D:\dev\webdev\project\kriptografi\SkripsiChat\server
   npm start
   ```
 * **Jalankan Frontend Next.js Client (:3000)**:
   ```powershell
-  cd D:\dev\webdev\project\kriptografi\AegisVault\client
+  cd D:\dev\webdev\project\kriptografi\SkripsiChat\client
   npm run dev
   ```
