@@ -6,5 +6,5 @@ export const AUTH_ASSETS = {
 export const AUTH_DEFAULTS = {
   defaultUsername: 'editor_aegis',
   defaultPassword: 'Aegis2026!',
-  redirectCountdownSeconds: 5,
+  redirectCountdownSeconds: 30,
 };

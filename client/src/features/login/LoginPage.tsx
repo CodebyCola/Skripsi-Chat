@@ -82,7 +82,7 @@ export function LoginPage() {
 
     if (!isDongleActiveAndValid) {
       setErrorMsg(
-        'AKSES DITOLAK: Hardware USB Dongle belum aktif atau tidak sesuai dengan username ini! Silakan aktifkan di Server Console (:4000).'
+        'AKSES DITOLAK: Hardware USB Dongle belum aktif atau tidak sesuai dengan username ini! Silakan aktifkan di Server Console.'
       );
       return;
     }

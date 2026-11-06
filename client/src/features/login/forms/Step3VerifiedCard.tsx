@@ -53,9 +53,6 @@ export function Step3VerifiedCard({
   const user = loginResponse?.user;
   const displayName = user?.fullName || usernameFallback;
   const displayUsername = user?.username || usernameFallback;
-  const displayRole = (user?.role || 'MAHASISWA').toUpperCase();
-  const displayDongleId =
-    user?.dongleId || authStatus?.activeDongle?.dongleId || 'VERIFIED';
 
   return (
     <div className="bg-surface rounded-3xl p-8 md:p-10 shadow-sm border border-border-subtle text-center flex flex-col justify-center relative overflow-hidden self-stretch">
@@ -139,23 +136,10 @@ export function Step3VerifiedCard({
             <h3 className="font-headline-sm text-headline-sm text-primary font-bold truncate">
               {displayName}
             </h3>
-            <span className="px-2.5 py-0.5 rounded-full bg-surface text-primary font-code-sm text-code-sm font-semibold shadow-xs">
-              ROLE: {displayRole}
-            </span>
           </div>
           <p className="font-body-sm text-body-sm text-text-secondary mt-0.5 truncate">
-            Akun: @{displayUsername} • Dongle: {displayDongleId}
+            Akun: @{displayUsername}
           </p>
-          <div className="flex items-center justify-center sm:justify-start gap-2 mt-2 pt-2">
-            <span className="w-2 h-2 rounded-full bg-tertiary-container" />
-            <span className="font-code-sm text-code-sm text-tertiary-container font-semibold">
-              Sesi Enkripsi Aktif
-            </span>
-            <span className="text-text-muted">•</span>
-            <span className="font-code-sm text-code-sm text-text-muted">
-              Kanal SkripsiChat Vault
-            </span>
-          </div>
         </div>
       </div>
 

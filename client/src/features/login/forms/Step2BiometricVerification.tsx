@@ -142,23 +142,13 @@ export function Step2BiometricVerification({
             <span className="material-symbols-outlined text-[18px] text-primary">
               videocam
             </span>
-            Pemindai Wajah Enclave (Webcam Real-time)
-          </span>
-          <span className="font-code-sm text-code-sm text-text-secondary flex items-center gap-1.5">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                cameraActive
-                  ? 'bg-tertiary-container animate-ping'
-                  : 'bg-security-info'
-              }`}
-            />
-            {cameraActive ? 'LIVE • 640x480' : 'STANDBY • 128-D'}
+            Pemindai Wajah Enclave
           </span>
         </div>
 
         {insecureOriginUrl && (
           <div className="mb-3 p-2.5 rounded-xl bg-surface-container-low border border-security-warning/40 font-body-sm text-body-sm text-on-surface">
-            ⚠️ Akses via IP jaringan menonaktifkan webcam langsung.{' '}
+            Akses via IP jaringan menonaktifkan webcam langsung.{' '}
             <a
               href={insecureOriginUrl}
               className="text-primary font-semibold underline"
@@ -211,19 +201,6 @@ export function Step2BiometricVerification({
               {verifyingFace ? 'Memverifikasi...' : '2. Scan & Cek Wajah'}
             </span>
           </button>
-
-          <label className="px-3.5 py-2 rounded-xl bg-surface hover:bg-surface-container-low text-text-secondary hover:text-primary border border-border-subtle font-label-md text-label-md flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer">
-            <span className="material-symbols-outlined text-[17px]">
-              upload_file
-            </span>
-            <span>Upload Foto</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={onUploadPhoto}
-              className="hidden"
-            />
-          </label>
         </div>
 
         {faceErrorText && (
@@ -259,8 +236,8 @@ export function Step2BiometricVerification({
               <span className="font-label-md text-label-md text-primary font-bold">
                 {faceVerify
                   ? faceVerify.matched
-                    ? `Wajah Terdeteksi • Kemiripan ${faceVerify.similarityPercent}%`
-                    : `Biometrik Ditolak • Kemiripan ${faceVerify.similarityPercent}%`
+                    ? `Wajah Terdeteksi - Kemiripan ${faceVerify.similarityPercent}%`
+                    : `Biometrik Ditolak - Kemiripan ${faceVerify.similarityPercent}%`
                   : 'Menunggu Pemindaian Wajah ke Server'}
               </span>
               <span className="font-label-sm text-label-sm text-text-secondary">
@@ -298,16 +275,6 @@ export function Step2BiometricVerification({
               {faceVerify ? `${similarityPct}% MATCH` : '0% SCAN'}
             </span>
           </div>
-        </div>
-
-        <div className="mt-3.5 flex items-start gap-2 bg-surface p-2.5 rounded-xl border border-border-subtle">
-          <span className="material-symbols-outlined text-[16px] text-text-secondary shrink-0 mt-0.5">
-            lock
-          </span>
-          <p className="font-body-sm text-body-sm text-text-secondary">
-            Ekstraksi vektor 128-dimensi Z-Score dieksekusi di browser; hanya
-            deskriptor numerik yang dikirim untuk dicocokkan di Server.
-          </p>
         </div>
       </div>
 
