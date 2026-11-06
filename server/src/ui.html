@@ -3,196 +3,342 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AegisVault Server (:4000) — Hardware Dongle &amp; Biometric Enrollment Console</title>
+  <title>Server Administration Console — SkripsiChat</title>
   <style>
     :root {
-      --bg: #070b14;
-      --card: #111827;
-      --card-alt: #0f172a;
-      --border: #334155;
-      --accent: #38bdf8;
-      --success: #10b981;
-      --danger: #ef4444;
-      --text: #f8fafc;
-      --muted: #94a3b8;
+      --bg: #0b0f19;
+      --card: #151d2f;
+      --border: #29354d;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --success: #16a34a;
+      --success-hover: #15803d;
+      --secondary: #1e293b;
+      --secondary-hover: #334155;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
-      padding: 24px;
       line-height: 1.5;
+      padding: 24px;
     }
-    .container { max-width: 1140px; margin: 0 auto; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* Header */
     header {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px 24px;
+      border-radius: 10px;
+      padding: 18px 24px;
       margin-bottom: 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 12px;
     }
-    h1 { font-size: 20px; font-weight: 700; color: #fff; }
-    p.sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
-    .grid-2 {
+
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+
+    p.subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .header-links a {
+      color: #60a5fa;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .header-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* Grid Layout */
+    .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
       gap: 20px;
+      margin-bottom: 20px;
     }
+
+    /* Cards */
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 10px;
       padding: 20px;
-      margin-bottom: 20px;
     }
-    .card h2 { font-size: 16px; margin-bottom: 6px; color: var(--accent); }
-    .badge {
-      display: inline-block;
-      padding: 5px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
     }
-    .badge-success { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid #10b981; }
-    .badge-danger { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid #ef4444; }
-    .mono {
-      font-family: 'Cascadia Code', Consolas, monospace;
-      font-size: 12px;
-      background: #050811;
-      border: 1px solid #1e293b;
-      padding: 12px;
-      border-radius: 8px;
-      color: #38bdf8;
-      word-break: break-all;
-      margin-top: 10px;
-      white-space: pre-wrap;
+
+    .card-desc {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
     }
+
+    /* Forms */
     label {
       display: block;
       font-size: 12.5px;
       font-weight: 600;
       color: #cbd5e1;
-      margin-top: 10px;
-      margin-bottom: 4px;
+      margin-top: 12px;
+      margin-bottom: 5px;
     }
+
     input, select {
       width: 100%;
       padding: 9px 12px;
-      border-radius: 8px;
+      border-radius: 6px;
       border: 1px solid var(--border);
-      background: #050811;
-      color: white;
-      font-size: 13.5px;
-    }
-    button {
-      cursor: pointer;
-      padding: 9px 15px;
-      border-radius: 8px;
-      border: none;
-      font-weight: 600;
+      background: #0b0f19;
+      color: #ffffff;
       font-size: 13px;
-      background: #0284c7;
-      color: white;
-      transition: 0.15s;
+      font-family: inherit;
     }
-    button:hover:not(:disabled) { background: #0369a1; }
-    button:disabled { opacity: 0.45; cursor: not-allowed; background: #334155; }
-    button.btn-danger { background: #dc2626; }
-    button.btn-danger:hover:not(:disabled) { background: #b91c1c; }
-    button.btn-success { background: #059669; }
-    button.btn-success:hover:not(:disabled) { background: #047857; }
-    button.btn-secondary { background: #1e293b; border: 1px solid var(--border); color: #e2e8f0; }
-    .alert {
-      padding: 12px 16px;
-      border-radius: 10px;
-      margin-bottom: 18px;
-      font-size: 13.5px;
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
     }
-    .alert-info { background: rgba(56,189,248,0.12); color: #bae6fd; border: 1px solid rgba(56,189,248,0.3); }
-    .alert-success { background: rgba(16,185,129,0.14); color: #a7f3d0; border: 1px solid rgba(16,185,129,0.4); }
-    .alert-error { background: rgba(239,68,68,0.14); color: #fecaca; border: 1px solid rgba(239,68,68,0.4); }
-    .hidden { display: none !important; }
-    .cam-stage {
-      background: #050811;
-      border: 1px dashed var(--border);
-      border-radius: 10px;
-      padding: 12px;
+
+    /* Buttons */
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    button, .btn {
+      cursor: pointer;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 600;
+      transition: background-color 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-family: inherit;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: var(--secondary);
+      color: #e2e8f0;
+      border-color: var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--secondary-hover);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #ffffff;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: var(--danger-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #ffffff;
+    }
+    .btn-success:hover:not(:disabled) {
+      background: var(--success-hover);
+    }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    /* Status Boxes */
+    .status-box {
+      background: #0b0f19;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #e2e8f0;
       margin-top: 10px;
+    }
+
+    .status-active {
+      border-left: 4px solid var(--success);
+    }
+
+    .status-inactive {
+      border-left: 4px solid var(--danger);
+    }
+
+    /* Alerts */
+    .alert {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .alert-success {
+      background: #064e3b;
+      border: 1px solid #059669;
+      color: #d1fae5;
+    }
+
+    .alert-error {
+      background: #7f1d1d;
+      border: 1px solid #dc2626;
+      color: #fee2e2;
+    }
+
+    /* Camera Stage */
+    .cam-stage {
+      background: #0b0f19;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
       text-align: center;
     }
-    .cam-pair {
+
+    .cam-row {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       justify-content: center;
       flex-wrap: wrap;
     }
-    .video-wrap {
+
+    .cam-box {
       position: relative;
-      width: 240px;
-      height: 170px;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid var(--border);
+      width: 220px;
+      height: 160px;
       background: #000;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
     }
-    .video-wrap video {
+
+    .cam-box video, .cam-box canvas {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-    .face-guide {
+
+    .cam-guide {
       position: absolute;
       left: 25%;
       top: 10%;
       width: 50%;
       height: 80%;
-      border: 2px dashed #38bdf8;
-      border-radius: 14px;
+      border: 2px dashed #60a5fa;
+      border-radius: 8px;
       pointer-events: none;
     }
-    canvas.capture-preview {
-      width: 240px;
-      height: 170px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #090d16;
-      object-fit: cover;
+
+    .cam-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
     }
-    .user-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-      gap: 14px;
+
+    /* Users Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
       margin-top: 12px;
     }
-    .user-item {
-      background: var(--card-alt);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      display: flex;
-      gap: 12px;
-      align-items: center;
+
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      background: #0b0f19;
+      color: #cbd5e1;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
     }
-    .user-avatar {
-      width: 72px;
-      height: 72px;
-      border-radius: 10px;
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: #e2e8f0;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .user-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
       border: 1px solid var(--border);
-      background: #050811;
       object-fit: cover;
-      flex-shrink: 0;
+      background: #0b0f19;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      color: var(--muted);
+      font-size: 10px;
+      color: var(--text-muted);
       text-align: center;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
     }
   </style>
 </head>
@@ -200,175 +346,201 @@
   <div class="container">
     <header>
       <div>
-        <h1>🖥️ AegisVault Server Console (:4000) — Kontrol Dongle &amp; Enroll Biometrik Wajah</h1>
-        <p class="sub">
-          Server bertugas mengelola Hardware Dongle &amp; menyimpan referensi Biometrik Wajah. Untuk interaksi Login &amp; fitur Vault user, buka <strong>Client Next.js di <a href="http://localhost:3000" target="_blank" style="color:#38bdf8;">http://localhost:3000</a></strong>.
-        </p>
+        <h1>Server Administration Console</h1>
+        <p class="subtitle">Kontrol status USB Dongle dan perekaman foto wajah biometrik</p>
       </div>
-      <div>
-        <span id="serverDongleBadge" class="badge badge-danger">Memindai USB...</span>
+      <div class="header-links">
+        <a href="http://localhost:3000" target="_blank">Buka Client Portal (localhost:3000) &rarr;</a>
       </div>
     </header>
 
-    <div id="statusAlert" class="alert alert-success hidden"></div>
+    <div id="alertBox" class="alert"></div>
 
-    <div class="grid-2">
-      <!-- PANEL 1: KONTROL DONGLE -->
+    <div class="grid">
+      <!-- 1. KONTROL DONGLE -->
       <div class="card">
-        <h2>🔌 1. Kontrol Aktivasi Hardware USB Dongle (.aegis_key)</h2>
-        <p class="sub">Aktifkan/nonaktifkan dongle di sini, lalu amati perubahan status real-time di halaman Login Client (<code>:3000</code>).</p>
+        <h2 class="card-title">1. Status dan Kontrol Hardware USB Dongle</h2>
+        <p class="card-desc">Atur status koneksi kunci fisik .aegis_key untuk verifikasi login client.</p>
 
-        <div id="dongleInfoBox" class="mono">Memuat status USB...</div>
+        <div id="dongleStatusBox" class="status-box status-inactive">
+          Memeriksa sambungan dongle...
+        </div>
 
-        <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
-          <button id="btnToggleDongle" class="btn-danger" onclick="toggleVirtualDongle()">
-            🔄 Aktifkan / Nonaktifkan USB Dongle
+        <div class="btn-group">
+          <button id="btnToggleDongle" class="btn-secondary" onclick="toggleDongle()">
+            Ubah Status Dongle
           </button>
-          <button class="btn-secondary" onclick="refreshStatus()">
-            🔍 Scan Port USB Fisik (D:\ - Z:\)
+          <button class="btn-secondary" onclick="refreshDongleStatus()">
+            Pindai Ulang Port USB
           </button>
         </div>
 
-        <hr style="border:none; border-top:1px solid var(--border); margin:18px 0;" />
-
-        <h3 style="font-size:14px; color:#e2e8f0;">💾 Tanamkan Kunci Dongle (.aegis_key) untuk User</h3>
-        <label>Pilih Username Pemilik Dongle</label>
-        <select id="dongleUserSelect"></select>
-        <button class="btn-success" style="margin-top:12px; width:100%;" onclick="provisionDongle()">
-          🔑 Generate &amp; Aktifkan Kunci Dongle untuk User Ini
-        </button>
+        <label style="margin-top:16px;">Tanamkan Kunci Dongle untuk Pengguna:</label>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <select id="dongleUserSelect" style="flex:1;"></select>
+          <button class="btn-primary" onclick="provisionDongle()">
+            Tanamkan Kunci
+          </button>
+        </div>
       </div>
 
-      <!-- PANEL 2: PEREKAMAN & PENYIMPANAN WAJAH BIOMETRIK DI SERVER -->
+      <!-- 2. ENROLL BIOMETRIK WAJAH -->
       <div class="card">
-        <h2>📸 2. Rekam &amp; Simpan Biometrik Wajah User di Server</h2>
-        <p class="sub">Rekam foto wajah referensi ke database Server (dienkripsi AES-256-GCM) untuk dicocokkan saat user scan wajah di Client.</p>
+        <h2 class="card-title">2. Perekaman Biometrik Wajah</h2>
+        <p class="card-desc">Simpan foto dan vektor 128-float wajah ke database terenkripsi server.</p>
 
-        <label>Pilih Akun User yang Akan Disimpan Wajahnya</label>
+        <label>Pilih Akun Pengguna:</label>
         <select id="enrollUserSelect"></select>
 
         <div class="cam-stage">
-          <div class="cam-pair">
-            <div class="video-wrap">
-              <video id="srvVideo" autoplay playsinline muted></video>
-              <div class="face-guide" title="Posisikan wajah di dalam kotak"></div>
+          <div class="cam-row">
+            <div class="cam-box">
+              <video id="videoEl" autoplay playsinline muted></video>
+              <div class="cam-guide"></div>
             </div>
-            <canvas id="srvCanvas" width="320" height="220" class="capture-preview"></canvas>
+            <div class="cam-box">
+              <canvas id="canvasEl" width="320" height="220"></canvas>
+            </div>
           </div>
-          <p id="camStatusText" style="font-size:12px; color:var(--muted); margin-top:8px;">
-            Nyalakan kamera Server atau pilih file foto wajah untuk mengekstrak 128-Float Vector.
+          <p id="camStatusText" class="cam-status">
+            Kamera belum aktif. Buka kamera atau unggah file foto wajah.
           </p>
 
-          <div style="display:flex; gap:8px; justify-content:center; margin-top:10px; flex-wrap:wrap;">
-            <button type="button" class="btn-secondary" onclick="startServerCamera()">🎥 1. Buka Kamera</button>
-            <button type="button" onclick="captureServerFace()">📸 2. Ambil Foto Wajah</button>
-            <label style="margin:0; display:inline-block;">
-              <span style="display:inline-block; padding:9px 12px; border-radius:8px; background:#1e293b; border:1px solid #334155; cursor:pointer; font-size:12.5px;">
-                🖼️ Atau Upload Foto
-              </span>
-              <input type="file" accept="image/*" style="display:none;" onchange="handleUploadFacePhoto(event)" />
+          <div class="btn-group" style="justify-content:center;">
+            <button type="button" class="btn-secondary btn-sm" onclick="startCamera()">
+              Buka Kamera
+            </button>
+            <button type="button" class="btn-secondary btn-sm" onclick="captureFace()">
+              Ambil Foto Wajah
+            </button>
+            <label style="margin:0; cursor:pointer;">
+              <span class="btn btn-secondary btn-sm">Upload File Foto</span>
+              <input type="file" accept="image/*" style="display:none;" onchange="handleFilePhoto(event)" />
             </label>
           </div>
         </div>
 
         <button
-          id="btnSaveFaceToDb"
-          class="btn-success"
+          id="btnSaveFace"
+          class="btn-success btn-block"
           disabled
-          style="width:100%; margin-top:14px; padding:11px;"
-          onclick="saveFaceToServerDb()"
+          style="margin-top:14px;"
+          onclick="saveFaceToDatabase()"
         >
-          💾 3. Simpan Foto &amp; Vektor Biometrik Wajah ke Database Server
+          Simpan Data Wajah ke Database
         </button>
       </div>
     </div>
 
-    <!-- PANEL 3: DAFTAR USER & FOTO WAJAH REFERENSI YANG TERSIMPAN DI SERVER -->
-    <div class="card">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <!-- 3. DATA AKUN PENGGUNA -->
+    <div class="card" style="margin-bottom:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <div>
-          <h2>👤 3. Data Akun, Dongle ID &amp; Referensi Wajah Terdaftar di Database Server</h2>
-          <p class="sub">Menampilkan status biometrik wajah dan kunci dongle yang sedang tersimpan di tabel SQLite <code>User</code>.</p>
+          <h2 class="card-title">3. Data Akun Terdaftar di Server</h2>
+          <p class="card-desc" style="margin-bottom:0;">
+            Kelola data akun, status foto biometrik, dan kunci dongle.
+          </p>
         </div>
-        <button class="btn-secondary" onclick="loadUsers()">🔄 Refresh Data User</button>
+        <button class="btn-secondary btn-sm" onclick="loadUsers()">
+          Refresh Daftar Akun
+        </button>
       </div>
 
-      <div id="usersGridContainer" class="user-grid">Memuat daftar akun...</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:60px;">Foto</th>
+              <th>Username</th>
+              <th>Nama Lengkap</th>
+              <th>Serial Dongle</th>
+              <th>Status Biometrik</th>
+              <th style="width:200px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="6" style="text-align:center; color:var(--text-muted);">
+                Memuat data akun...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-      <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;" />
+    <!-- 4. TAMBAH AKUN BARU -->
+    <div class="card">
+      <h2 class="card-title">4. Tambah Akun Pengguna Baru</h2>
+      <p class="card-desc">Tambahkan akun baru ke database lokal dengan password Scrypt + Salt.</p>
 
-      <h3 style="font-size:14.5px; margin-bottom:6px; color:#38bdf8;">➕ Tambah Akun Investigator Baru di Server</h3>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
         <div>
-          <label>Username Baru</label>
-          <input type="text" id="newUsername" placeholder="misal: agen_sari" />
+          <label>Username</label>
+          <input type="text" id="newUsername" placeholder="Contoh: dosen_pembimbing" />
         </div>
         <div>
           <label>Nama Lengkap</label>
-          <input type="text" id="newFullName" placeholder="Sari Dewi (Auditor)" />
+          <input type="text" id="newFullName" placeholder="Nama lengkap dan gelar" />
         </div>
         <div>
-          <label>Password (Scrypt + Salt)</label>
-          <input type="password" id="newPassword" placeholder="Password login" />
+          <label>Kata Sandi</label>
+          <input type="password" id="newPassword" placeholder="Kata sandi akun" />
         </div>
       </div>
-      <button style="margin-top:12px;" onclick="createNewUserOnServer()">
-        ➕ Buat Akun Baru (Lalu Rekam Wajahnya di Panel #2)
+
+      <button class="btn-primary" style="margin-top:14px;" onclick="createUser()">
+        Simpan Akun Baru
       </button>
     </div>
   </div>
 
   <script>
-    let srvStream = null;
+    let cameraStream = null;
     let capturedDescriptor = null;
     let capturedPhotoDataUrl = null;
 
-    async function api(path, method = 'GET', body = null) {
+    async function fetchApi(endpoint, method = 'GET', body = null) {
       const opts = {
         method,
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
       };
       if (body) opts.body = JSON.stringify(body);
-      const res = await fetch(path, opts);
+      const res = await fetch(endpoint, opts);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal memproses permintaan');
+      if (!res.ok) {
+        throw new Error(data.error || 'Terjadi kesalahan pada server');
+      }
       return data;
     }
 
-    function showAlert(msg, isError = false) {
-      const el = document.getElementById('statusAlert');
+    function notify(message, isError = false) {
+      const el = document.getElementById('alertBox');
       el.className = isError ? 'alert alert-error' : 'alert alert-success';
-      el.textContent = msg;
-      el.classList.remove('hidden');
-      setTimeout(() => el.classList.add('hidden'), 6000);
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => {
+        el.style.display = 'none';
+      }, 5000);
     }
 
-    /**
-     * Algoritma Ekstraksi Fitur Biometrik Wajah 128-Float (Identik antara Server & Client)
-     * Mengambil kotak wajah tengah (80..240, 22..198), membagi ke grid 8x8 (64 sel),
-     * lalu menghitung Z-Score struktur pencahayaan wajah + 64 gradien spasial.
-     */
     function extractBiometricDescriptorFromCanvas(canvas) {
       const ctx = canvas.getContext('2d');
       const boxX = 80, boxY = 22, boxW = 160, boxH = 176;
       const imgData = ctx.getImageData(boxX, boxY, boxW, boxH).data;
 
-      const cellW = Math.floor(boxW / 8); // 20 px
-      const cellH = Math.floor(boxH / 8); // 22 px
+      const cellW = Math.floor(boxW / 8);
+      const cellH = Math.floor(boxH / 8);
       const lumGrid = new Array(64).fill(0);
 
       for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
-          let sum = 0;
-          let count = 0;
+          let sum = 0, count = 0;
           for (let y = r * cellH; y < (r + 1) * cellH; y++) {
             for (let x = c * cellW; x < (c + 1) * cellW; x++) {
               const idx = (y * boxW + x) * 4;
-              const lum =
-                imgData[idx] * 0.299 +
-                imgData[idx + 1] * 0.587 +
-                imgData[idx + 2] * 0.114;
+              const lum = imgData[idx] * 0.299 + imgData[idx + 1] * 0.587 + imgData[idx + 2] * 0.114;
               sum += lum;
               count++;
             }
@@ -378,14 +550,11 @@
       }
 
       const meanLum = lumGrid.reduce((a, b) => a + b, 0) / 64;
-      const variance =
-        lumGrid.reduce((acc, v) => acc + (v - meanLum) * (v - meanLum), 0) / 64;
+      const variance = lumGrid.reduce((acc, v) => acc + (v - meanLum) * (v - meanLum), 0) / 64;
       const stdLum = Math.sqrt(variance);
 
       if (meanLum < 8 || stdLum < 3.5) {
-        throw new Error(
-          'Gambar terlalu gelap / kosong! Pastikan wajah terlihat jelas di dalam kotak pemindai.'
-        );
+        throw new Error('Gambar terlalu gelap atau kosong. Posisikan wajah di dalam kotak panduan.');
       }
 
       const normScale = Math.max(stdLum, 12);
@@ -402,57 +571,102 @@
       return [...features64, ...grad64].map((n) => Number(n.toFixed(4)));
     }
 
-    async function startServerCamera() {
+    async function refreshDongleStatus() {
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error('Pastikan membuka Server Console melalui http://localhost:4000 agar kamera diizinkan browser.');
+        const data = await fetchApi('/api/auth/dongle/status');
+        const box = document.getElementById('dongleStatusBox');
+        const btnToggle = document.getElementById('btnToggleDongle');
+
+        if (data.dongleDetected && data.activeDongle) {
+          box.className = 'status-box status-active';
+          box.innerHTML = `
+            <strong>Status: Aktif / Terhubung</strong><br />
+            Pengguna: <strong>@${data.activeDongle.username}</strong> | Drive: ${data.activeDongle.drivePath} | Serial: <code>${data.activeDongle.dongleId}</code>
+          `;
+          btnToggle.className = 'btn-danger';
+          btnToggle.textContent = 'Nonaktifkan Dongle';
+        } else {
+          box.className = 'status-box status-inactive';
+          box.innerHTML = `
+            <strong>Status: Nonaktif / Terputus</strong><br />
+            Tidak ada file kunci .aegis_key yang aktif. Login di Client akan ditolak.
+          `;
+          btnToggle.className = 'btn-success';
+          btnToggle.textContent = 'Aktifkan Dongle';
         }
-        if (srvStream) {
-          srvStream.getTracks().forEach((t) => t.stop());
-        }
-        srvStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-          audio: false,
-        });
-        const video = document.getElementById('srvVideo');
-        video.srcObject = srvStream;
-        await video.play();
-        document.getElementById('camStatusText').style.color = '#38bdf8';
-        document.getElementById('camStatusText').textContent =
-          '🎥 Kamera aktif! Posisikan wajah di kotak tengah lalu klik "2. Ambil Foto Wajah".';
       } catch (err) {
-        showAlert('Gagal membuka webcam: ' + err.message, true);
+        notify(err.message, true);
       }
     }
 
-    function captureServerFace() {
+    async function toggleDongle() {
       try {
-        const video = document.getElementById('srvVideo');
-        if (!srvStream || video.videoWidth === 0) {
-          throw new Error('Klik "1. Buka Kamera" terlebih dahulu sampai video tampil!');
+        await fetchApi('/api/auth/dongle/toggle-virtual', 'POST', {});
+        await refreshDongleStatus();
+        notify('Status sambungan dongle berhasil diperbarui.');
+      } catch (err) {
+        notify(err.message, true);
+      }
+    }
+
+    async function provisionDongle() {
+      try {
+        const username = document.getElementById('dongleUserSelect').value;
+        const res = await fetchApi('/api/auth/dongle/provision', 'POST', { username });
+        await refreshDongleStatus();
+        await loadUsers();
+        notify(res.message);
+      } catch (err) {
+        notify(err.message, true);
+      }
+    }
+
+    async function startCamera() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Akses kamera tidak didukung atau diblokir.');
         }
-        const canvas = document.getElementById('srvCanvas');
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((t) => t.stop());
+        }
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          audio: false,
+        });
+        const video = document.getElementById('videoEl');
+        video.srcObject = cameraStream;
+        await video.play();
+        document.getElementById('camStatusText').textContent = 'Kamera aktif. Posisikan wajah di dalam kotak lalu klik Ambil Foto Wajah.';
+      } catch (err) {
+        notify('Gagal membuka kamera: ' + err.message, true);
+      }
+    }
+
+    function captureFace() {
+      try {
+        const video = document.getElementById('videoEl');
+        if (!cameraStream || video.videoWidth === 0) {
+          throw new Error('Buka kamera terlebih dahulu sebelum mengambil foto.');
+        }
+        const canvas = document.getElementById('canvasEl');
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         capturedDescriptor = extractBiometricDescriptorFromCanvas(canvas);
-        capturedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        capturedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
-        // Gambar bingkai hijau tanda berhasil diekstrak
-        ctx.strokeStyle = '#10b981';
+        ctx.strokeStyle = '#16a34a';
         ctx.lineWidth = 3;
         ctx.strokeRect(80, 22, 160, 176);
 
-        document.getElementById('camStatusText').style.color = '#34d399';
-        document.getElementById('camStatusText').textContent =
-          '✅ Wajah terekam (128-Float Vector siap)! Klik tombol hijau "Simpan ke Database Server" di bawah.';
-        document.getElementById('btnSaveFaceToDb').disabled = false;
+        document.getElementById('camStatusText').textContent = 'Foto wajah siap disimpan. Klik tombol Simpan Data Wajah.';
+        document.getElementById('btnSaveFace').disabled = false;
       } catch (err) {
-        showAlert(err.message, true);
+        notify(err.message, true);
       }
     }
 
-    function handleUploadFacePhoto(event) {
+    function handleFilePhoto(event) {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -460,23 +674,21 @@
         const img = new Image();
         img.onload = () => {
           try {
-            const canvas = document.getElementById('srvCanvas');
+            const canvas = document.getElementById('canvasEl');
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
             capturedDescriptor = extractBiometricDescriptorFromCanvas(canvas);
-            capturedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            capturedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
-            ctx.strokeStyle = '#10b981';
+            ctx.strokeStyle = '#16a34a';
             ctx.lineWidth = 3;
             ctx.strokeRect(80, 22, 160, 176);
 
-            document.getElementById('camStatusText').style.color = '#34d399';
-            document.getElementById('camStatusText').textContent =
-              '✅ Foto wajah berhasil dibaca! Klik tombol hijau "Simpan ke Database Server".';
-            document.getElementById('btnSaveFaceToDb').disabled = false;
+            document.getElementById('camStatusText').textContent = 'Foto wajah dari file siap disimpan.';
+            document.getElementById('btnSaveFace').disabled = false;
           } catch (err) {
-            showAlert(err.message, true);
+            notify(err.message, true);
           }
         };
         img.src = ev.target.result;
@@ -484,166 +696,149 @@
       reader.readAsDataURL(file);
     }
 
-    async function saveFaceToServerDb() {
+    async function saveFaceToDatabase() {
       try {
         const username = document.getElementById('enrollUserSelect').value;
         if (!capturedDescriptor) {
-          throw new Error('Ambil foto wajah terlebih dahulu!');
+          throw new Error('Ambil atau pilih foto wajah terlebih dahulu.');
         }
-        const res = await api('/api/auth/face/enroll', 'POST', {
+        const res = await fetchApi('/api/auth/face/enroll', 'POST', {
           username,
           faceDescriptor: capturedDescriptor,
           facePhotoBase64: capturedPhotoDataUrl,
         });
 
-        // Matikan kamera Server agar webcam bebas dipakai oleh tab Client (:3000)
-        if (srvStream) {
-          srvStream.getTracks().forEach((t) => t.stop());
-          srvStream = null;
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((t) => t.stop());
+          cameraStream = null;
         }
 
-        showAlert(
-          res.message + ' (Kamera Server telah dilepas agar siap digunakan di Client :3000)'
-        );
+        document.getElementById('btnSaveFace').disabled = true;
+        document.getElementById('camStatusText').textContent = 'Foto berhasil disimpan ke database.';
+        notify(res.message);
         await loadUsers();
       } catch (err) {
-        showAlert(err.message, true);
+        notify(err.message, true);
       }
     }
 
-    async function refreshStatus() {
-      try {
-        const data = await api('/api/auth/dongle/status');
-        const badge = document.getElementById('serverDongleBadge');
-        const box = document.getElementById('dongleInfoBox');
-        const btnToggle = document.getElementById('btnToggleDongle');
-
-        if (data.dongleDetected && data.activeDongle) {
-          badge.className = 'badge badge-success';
-          badge.textContent = '🟢 DONGLE AKTIF: ' + data.activeDongle.username;
-          btnToggle.className = 'btn-danger';
-          btnToggle.textContent = '🔌 Nonaktifkan / Cabut USB Dongle';
-          box.textContent =
-            `Status Hardware : AKTIF (Terdeteksi oleh Server)\n` +
-            `Drive           : ${data.activeDongle.drivePath}\n` +
-            `Pemilik Kunci   : ${data.activeDongle.username}\n` +
-            `Dongle Serial   : ${data.activeDongle.dongleId}\n` +
-            `Enkripsi Token  : AES-256-CBC + HMAC-SHA256 (.aegis_key)`;
-        } else {
-          badge.className = 'badge badge-danger';
-          badge.textContent = '🔴 DONGLE NON-AKTIF';
-          btnToggle.className = 'btn-success';
-          btnToggle.textContent = '🔌 Aktifkan / Pasang USB Dongle';
-          box.textContent =
-            `Status Hardware : NON-AKTIF (Tidak ada file .aegis_key aktif)\n` +
-            `Efek ke Client  : Halaman Login Client (:3000) otomatis terkunci.`;
-        }
-      } catch (err) {
-        showAlert(err.message, true);
+    async function deleteUserFace(username) {
+      if (!confirm(`Hapus foto dan data biometrik wajah untuk @${username}?`)) {
+        return;
       }
-    }
-
-    async function toggleVirtualDongle() {
       try {
-        const res = await api('/api/auth/dongle/toggle-virtual', 'POST', {});
-        await refreshStatus();
-        showAlert(
-          res.dongleDetected
-            ? '🟢 USB Dongle DIAKTIFKAN! Client (:3000) sekarang membaca Dongle Aktif.'
-            : '🔴 USB Dongle DINONAKTIFKAN! Client (:3000) sekarang terkunci.'
-        );
-      } catch (err) {
-        showAlert(err.message, true);
-      }
-    }
-
-    async function provisionDongle() {
-      try {
-        const username = document.getElementById('dongleUserSelect').value;
-        const res = await api('/api/auth/dongle/provision', 'POST', { username });
-        await refreshStatus();
+        const res = await fetchApi('/api/auth/face/delete', 'POST', { username });
+        notify(res.message);
         await loadUsers();
-        showAlert(res.message);
       } catch (err) {
-        showAlert(err.message, true);
+        notify(err.message, true);
+      }
+    }
+
+    async function deleteUser(username) {
+      if (!confirm(`Hapus akun @${username} secara permanen dari database server?`)) {
+        return;
+      }
+      try {
+        const res = await fetchApi('/api/auth/users/delete', 'POST', { username });
+        notify(res.message);
+        await loadUsers();
+        await refreshDongleStatus();
+      } catch (err) {
+        notify(err.message, true);
       }
     }
 
     async function loadUsers() {
       try {
-        const users = await api('/api/auth/users');
+        const users = await fetchApi('/api/auth/users');
         const selEnroll = document.getElementById('enrollUserSelect');
         const selDongle = document.getElementById('dongleUserSelect');
         const prevEnroll = selEnroll.value;
         const prevDongle = selDongle.value;
 
-        const optsHtml = users
-          .map((u) => `<option value="${u.username}">${u.username} — ${u.fullName}</option>`)
+        const optionsHtml = users
+          .map((u) => `<option value="${u.username}">@${u.username} (${u.fullName})</option>`)
           .join('');
-        selEnroll.innerHTML = optsHtml;
-        selDongle.innerHTML = optsHtml;
+
+        selEnroll.innerHTML = optionsHtml;
+        selDongle.innerHTML = optionsHtml;
         if (prevEnroll) selEnroll.value = prevEnroll;
         if (prevDongle) selDongle.value = prevDongle;
 
-        const grid = document.getElementById('usersGridContainer');
-        grid.innerHTML = users
-          .map(
-            (u) => `
-          <div class="user-item">
-            ${
-              u.facePhotoDataUrl
-                ? `<img src="${u.facePhotoDataUrl}" class="user-avatar" alt="${u.username}" />`
-                : `<div class="user-avatar">Belum Rekam<br/>Foto Wajah</div>`
-            }
-            <div style="font-size:12px;">
-              <strong style="font-size:14px; color:#fff;">@${u.username}</strong>
-              <div style="color:#94a3b8;">${u.fullName}</div>
-              <div style="margin-top:4px; color:#38bdf8;">Dongle: <code>${u.dongleId.slice(0, 18)}...</code></div>
-              <div style="margin-top:3px; color:${u.hasFacePhoto ? '#34d399' : '#fbbf24'};">
+        const tbody = document.getElementById('usersTableBody');
+        if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Belum ada akun terdaftar.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = users
+          .map((u) => `
+            <tr>
+              <td>
+                ${
+                  u.facePhotoDataUrl
+                    ? `<img src="${u.facePhotoDataUrl}" class="user-thumb" alt="${u.username}" />`
+                    : `<div class="user-thumb">Kosong</div>`
+                }
+              </td>
+              <td><strong>@${u.username}</strong></td>
+              <td>${u.fullName}</td>
+              <td><code>${u.dongleId ? u.dongleId.slice(0, 16) + '...' : '-'}</code></td>
+              <td>
                 ${
                   u.hasFacePhoto
-                    ? '✅ Wajah Asli Tersimpan (AES-256-GCM)'
-                    : '⚠️ Belum Rekam Wajah Asli (Vektor Default)'
+                    ? '<span style="color:#22c55e;">Tersimpan</span>'
+                    : '<span style="color:#f59e0b;">Belum Ada</span>'
                 }
-              </div>
-            </div>
-          </div>
-        `
-          )
+              </td>
+              <td>
+                <div class="table-actions">
+                  ${
+                    u.hasFacePhoto
+                      ? `<button type="button" class="btn-danger btn-sm" onclick="deleteUserFace('${u.username}')">Hapus Foto</button>`
+                      : ''
+                  }
+                  <button type="button" class="btn-secondary btn-sm" onclick="deleteUser('${u.username}')">Hapus Akun</button>
+                </div>
+              </td>
+            </tr>
+          `)
           .join('');
       } catch (err) {
-        showAlert(err.message, true);
+        notify(err.message, true);
       }
     }
 
-    async function createNewUserOnServer() {
+    async function createUser() {
       try {
         const username = document.getElementById('newUsername').value.trim();
         const fullName = document.getElementById('newFullName').value.trim();
         const password = document.getElementById('newPassword').value;
+
         if (!username || !password) {
-          throw new Error('Username dan Password wajib diisi!');
+          throw new Error('Username dan kata sandi wajib diisi.');
         }
-        await api('/api/auth/register', 'POST', {
+
+        await fetchApi('/api/auth/register', 'POST', {
           username,
           fullName: fullName || username,
           password,
-          faceDescriptor: capturedDescriptor || undefined,
-          facePhotoBase64: capturedPhotoDataUrl || undefined,
         });
+
         document.getElementById('newUsername').value = '';
         document.getElementById('newFullName').value = '';
         document.getElementById('newPassword').value = '';
+
+        notify(`Akun @${username} berhasil dibuat.`);
         await loadUsers();
-        await refreshStatus();
-        showAlert(`Akun '${username}' & Kunci Dongle berhasil dibuat di Server! Silakan rekam wajahnya jika belum.`);
       } catch (err) {
-        showAlert(err.message, true);
+        notify(err.message, true);
       }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      refreshStatus();
+      refreshDongleStatus();
       loadUsers();
     });
   </script>

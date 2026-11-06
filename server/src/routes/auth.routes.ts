@@ -206,6 +206,76 @@ export function handleEnrollUserFace(body: {
   };
 }
 
+export function handleDeleteUserFace(username: string) {
+  const user = (username || '').trim();
+  if (!user) {
+    throw new Error('Username wajib diisi untuk menghapus foto wajah');
+  }
+
+  const defaultDesc = Array.from({ length: 128 }, (_, i) =>
+    Number((Math.sin(i * 0.5) * 0.25).toFixed(4))
+  );
+
+  const res = db
+    .prepare(
+      `UPDATE User
+       SET facePhotoEncrypted = '',
+           faceDescriptorEncrypted = ?,
+           faceUpdatedAt = ?
+       WHERE username = ?`
+    )
+    .run(
+      encryptDatabaseColumn(JSON.stringify(defaultDesc)),
+      new Date().toISOString(),
+      user
+    );
+
+  if (res.changes === 0) {
+    throw new Error(`Akun '${user}' tidak ditemukan di database`);
+  }
+
+  appendNewBlockchainRecord({
+    actionType: 'BIOMETRIC_FACE_DELETE',
+    actor: user,
+    assetTitle: `Penghapusan Foto Biometrik Wajah (@${user})`,
+    assetData: `${user}|RESET_DEFAULT`,
+  });
+
+  return {
+    success: true,
+    message: `Foto dan data biometrik wajah untuk '${user}' berhasil dihapus.`,
+  };
+}
+
+export function handleDeleteUser(username: string) {
+  const user = (username || '').trim();
+  if (!user) {
+    throw new Error('Username wajib diisi untuk menghapus akun');
+  }
+
+  const userRow = db
+    .prepare('SELECT id FROM User WHERE username = ?')
+    .get(user) as { id: number } | undefined;
+
+  if (!userRow) {
+    throw new Error(`Akun '${user}' tidak ditemukan di database`);
+  }
+
+  db.prepare('DELETE FROM User WHERE id = ?').run(userRow.id);
+
+  appendNewBlockchainRecord({
+    actionType: 'DELETE_USER',
+    actor: user,
+    assetTitle: `Penghapusan Akun (@${user})`,
+    assetData: `${user}|DELETED`,
+  });
+
+  return {
+    success: true,
+    message: `Akun '${user}' berhasil dihapus dari database.`,
+  };
+}
+
 /**
  * Endpoint untuk Client (:3000) mengecek status Dongle & kesiapan Biometrik milik user di Server
  */

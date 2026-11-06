@@ -20,6 +20,8 @@ import {
   handleProvisionUsbDongle,
   handleGetUsersForAdmin,
   handleEnrollUserFace,
+  handleDeleteUserFace,
+  handleDeleteUser,
   handleCheckClientAuthStatus,
   handleVerifyClientFace,
   handleRegisterUser,
@@ -132,6 +134,14 @@ export const server = http.createServer(async (req, res) => {
     if (method === 'POST' && pathname === '/api/auth/face/enroll') {
       const body = await readJsonBody(req);
       return sendJson(res, 200, handleEnrollUserFace(body));
+    }
+    if (method === 'POST' && pathname === '/api/auth/face/delete') {
+      const body = await readJsonBody(req);
+      return sendJson(res, 200, handleDeleteUserFace(body.username));
+    }
+    if (method === 'POST' && pathname === '/api/auth/users/delete') {
+      const body = await readJsonBody(req);
+      return sendJson(res, 200, handleDeleteUser(body.username));
     }
     if (method === 'POST' && pathname === '/api/auth/verify-face') {
       const body = await readJsonBody(req);
