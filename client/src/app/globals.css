@@ -56,6 +56,10 @@
   --color-primary: #134230;
   --color-on-tertiary-fixed-variant: #005236;
   --color-tertiary-fixed: #a4f3ca;
+  --color-sage-tint: #E9F7EF;
+  --color-sage-border: #E3EAE6;
+  --color-text-dark: #121E19;
+  --color-primary-hover: #0c2d20;
 
   /* Named Spacing Tokens */
   --spacing-space-xs: 0.25rem;
@@ -179,10 +183,12 @@
   user-select: none;
 }
 
-/* Scope default styles so SkripsiChat light-sage UI is pristine while legacy /dashboard pages retain their dark styling */
+/* Scope default styles so SkripsiChat light-sage UI is pristine while legacy pages retain their dark styling */
 @layer base {
   html:has(.skripsichat-auth),
-  body:has(.skripsichat-auth) {
+  body:has(.skripsichat-auth),
+  html:has(.skripsichat-app),
+  body:has(.skripsichat-app) {
     background-color: #F9FBF9;
     color: #121e19;
     margin: 0;
@@ -190,7 +196,7 @@
     overscroll-behavior: none;
   }
 
-  body:not(:has(.skripsichat-auth)) {
+  body:not(:has(.skripsichat-auth)):not(:has(.skripsichat-app)) {
     background: #090d16;
     color: #f8fafc;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -198,7 +204,7 @@
     padding: 0;
   }
 
-  body:not(:has(.skripsichat-auth)) :where(input, select, textarea) {
+  body:not(:has(.skripsichat-auth)):not(:has(.skripsichat-app)) :where(input, select, textarea) {
     width: 100%;
     padding: 9px 12px;
     border-radius: 8px;
@@ -209,7 +215,7 @@
     margin-bottom: 12px;
   }
 
-  body:not(:has(.skripsichat-auth)) :where(button) {
+  body:not(:has(.skripsichat-auth)):not(:has(.skripsichat-app)) :where(button) {
     cursor: pointer;
     padding: 9px 16px;
     border-radius: 8px;
@@ -219,7 +225,7 @@
     color: white;
   }
 
-  body:not(:has(.skripsichat-auth)) :where(button:disabled) {
+  body:not(:has(.skripsichat-auth)):not(:has(.skripsichat-app)) :where(button:disabled) {
     opacity: 0.45;
     cursor: not-allowed;
     background: #334155;
