@@ -139,8 +139,8 @@ export function createGenesisBlock(): BlockRecord {
     timestamp: '2026-01-01T00:00:00.000Z',
     actionType: 'GENESIS_INIT',
     actor: 'SYSTEM',
-    assetTitle: 'Inisialisasi Rantai Bukti AegisVault',
-    assetDataHash: hashAssetData('AEGISVAULT_GENESIS_BLOCK_2026'),
+    assetTitle: 'Inisialisasi Rantai Bukti SkripsiChat (Academic Advisory Shield)',
+    assetDataHash: hashAssetData('SKRIPSICHAT_ACADEMIC_LEDGER_GENESIS_2026'),
     previousHash: '0'.repeat(64),
   });
 }

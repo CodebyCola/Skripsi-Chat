@@ -7,12 +7,14 @@ interface MessageItemCardProps {
   message: EncryptedMessageRecord;
   decryptedText?: string;
   onDecrypt: (id: number) => void;
+  onDelete?: (id: number) => void;
 }
 
 export function MessageItemCard({
   message,
   decryptedText,
   onDecrypt,
+  onDelete,
 }: MessageItemCardProps) {
   return (
     <div
@@ -47,13 +49,32 @@ export function MessageItemCard({
         {message.superCiphertextPayload}
       </pre>
 
-      <button
-        type="button"
-        onClick={() => onDecrypt(message.id)}
-        style={{ background: '#1e293b', border: '1px solid #334155' }}
-      >
-        🔓 Dekripsi dengan Passphrase di Atas
-      </button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => onDecrypt(message.id)}
+          style={{ background: '#1e293b', border: '1px solid #334155', color: '#f1f5f9', cursor: 'pointer', padding: '6px 12px', borderRadius: 6 }}
+        >
+          Dekripsi Pesan
+        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(message.id)}
+            style={{
+              background: 'transparent',
+              border: '1px solid #ef4444',
+              color: '#f87171',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderRadius: 6,
+              fontSize: 12,
+            }}
+          >
+            Hapus Pesan
+          </button>
+        )}
+      </div>
 
       {decryptedText && (
         <div

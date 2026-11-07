@@ -122,8 +122,8 @@ export function Step1CredentialForm({
               onChange={(e) => onUsernameChange(e.target.value)}
               placeholder={
                 role === 'student'
-                  ? 'Contoh: editor_aegis atau NIM'
-                  : 'Contoh: editor_aegis atau NIDN'
+                  ? 'Contoh: mahasiswa_01 atau NIM'
+                  : 'Contoh: dosen_pembimbing atau NIDN'
               }
               required
               className="w-full pl-11 pr-10 py-3 bg-canvas text-on-surface font-body-md text-body-md rounded-xl border border-border-subtle focus:outline-none focus:border-primary-container focus:ring-2 focus:ring-primary-fixed transition-all placeholder:text-text-muted"

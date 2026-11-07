@@ -4,7 +4,7 @@ export const AUTH_ASSETS = {
 };
 
 export const AUTH_DEFAULTS = {
-  defaultUsername: 'editor_aegis',
-  defaultPassword: 'Aegis2026!',
+  defaultUsername: 'dosen_pembimbing',
+  defaultPassword: 'SkripsiChat2026!',
   redirectCountdownSeconds: 30,
 };

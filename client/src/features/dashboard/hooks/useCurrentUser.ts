@@ -8,7 +8,9 @@ export function useCurrentUser() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('aegis_user');
+      const raw =
+        localStorage.getItem('skripsichat_user') ||
+        localStorage.getItem('aegis_user');
       if (!raw) {
         window.location.href = '/';
         return;
@@ -22,6 +24,7 @@ export function useCurrentUser() {
   }, []);
 
   function logout() {
+    localStorage.removeItem('skripsichat_user');
     localStorage.removeItem('aegis_user');
     window.location.href = '/';
   }

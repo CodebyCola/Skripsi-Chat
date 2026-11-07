@@ -25,6 +25,7 @@ export function MessagesView() {
     loading,
     handleEncrypt,
     handleDecrypt,
+    handleDelete,
   } = useMessages();
 
   return (
@@ -78,6 +79,7 @@ export function MessagesView() {
             message={m}
             decryptedText={decryptedMap[m.id]}
             onDecrypt={handleDecrypt}
+            onDelete={handleDelete}
           />
         ))}
       </main>

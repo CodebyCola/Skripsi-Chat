@@ -19,7 +19,8 @@ import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-const STEGO_MAGIC_PREFIX = 'AEGIS_LSB_V1|';
+const STEGO_MAGIC_PREFIX = 'SKRIPSI_LSB_V1|';
+const LEGACY_STEGO_PREFIX = 'AEGIS_LSB_V1|';
 
 export interface DecodedPngImage {
   width: number;
@@ -370,21 +371,27 @@ export function extractMessageFromPngLsb(
 
         if (!headerParsed && extractedBytes.length >= 25) {
           const previewStr = Buffer.from(extractedBytes).toString('utf8');
-          if (!previewStr.startsWith(STEGO_MAGIC_PREFIX)) {
+          const activePrefix = previewStr.startsWith(STEGO_MAGIC_PREFIX)
+            ? STEGO_MAGIC_PREFIX
+            : previewStr.startsWith(LEGACY_STEGO_PREFIX)
+            ? LEGACY_STEGO_PREFIX
+            : null;
+
+          if (!activePrefix) {
             throw new Error(
-              'Gambar PNG ini tidak mengandung pesan steganografi AegisVault (Header LSB tidak ditemukan)'
+              'Gambar PNG ini tidak mengandung pesan steganografi SkripsiChat (Header LSB tidak ditemukan)'
             );
           }
 
-          const secondPipeIdx = previewStr.indexOf('|', STEGO_MAGIC_PREFIX.length);
+          const secondPipeIdx = previewStr.indexOf('|', activePrefix.length);
           if (secondPipeIdx !== -1) {
-            const lenStr = previewStr.slice(STEGO_MAGIC_PREFIX.length, secondPipeIdx);
+            const lenStr = previewStr.slice(activePrefix.length, secondPipeIdx);
             const payloadByteLen = parseInt(lenStr, 10);
             if (isNaN(payloadByteLen) || payloadByteLen < 0) {
               throw new Error('Panjang payload LSB rusak');
             }
             const headerByteLen = Buffer.from(
-              `${STEGO_MAGIC_PREFIX}${lenStr}|`,
+              `${activePrefix}${lenStr}|`,
               'utf8'
             ).length;
             targetTotalBytes = headerByteLen + payloadByteLen;
@@ -396,7 +403,10 @@ export function extractMessageFromPngLsb(
           const fullStr = Buffer.from(extractedBytes.slice(0, targetTotalBytes)).toString(
             'utf8'
           );
-          const secondPipeIdx = fullStr.indexOf('|', STEGO_MAGIC_PREFIX.length);
+          const activePrefix = fullStr.startsWith(STEGO_MAGIC_PREFIX)
+            ? STEGO_MAGIC_PREFIX
+            : LEGACY_STEGO_PREFIX;
+          const secondPipeIdx = fullStr.indexOf('|', activePrefix.length);
           const protectedPayload = fullStr.slice(secondPipeIdx + 1);
           const secretMessage = unprotectPayloadWithPasskey(protectedPayload, passkey);
 

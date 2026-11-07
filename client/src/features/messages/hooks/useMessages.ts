@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   decryptMessage,
+  deleteMessage,
   encryptAndSaveMessage,
   fetchMessages,
 } from '../api/messagesApi';
@@ -12,8 +13,8 @@ import {
 } from '../types/messages.types';
 
 export function useMessages() {
-  const [title, setTitle] = useState('Laporan Konsultasi Skripsi');
-  const [sender, setSender] = useState('editor_aegis');
+  const [title, setTitle] = useState('Konsultasi Revisi Bab Skripsi');
+  const [sender, setSender] = useState('dosen_pembimbing');
   const [plaintext, setPlaintext] = useState('');
   const [passphrase, setPassphrase] = useState('KunciDemo2026');
   const [mode, setMode] = useState<'CBC' | 'ECB'>('CBC');
@@ -23,6 +24,20 @@ export function useMessages() {
   const [decryptedMap, setDecryptedMap] = useState<Record<number, string>>({});
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored =
+        localStorage.getItem('skripsichat_user') ||
+        localStorage.getItem('aegis_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.username) setSender(u.username);
+      }
+    } catch {
+      // Abaikan jika gagal baca
+    }
+  }, []);
 
   async function loadMessages() {
     try {
@@ -61,7 +76,25 @@ export function useMessages() {
       const res = await decryptMessage(id, passphrase);
       setDecryptedMap((prev) => ({ ...prev, [id]: res.plaintext }));
     } catch (err: any) {
-      setErrorMsg(err.message || 'Dekripsi gagal');
+      setErrorMsg(err.message || 'Dekripsi gagal: passphrase salah');
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm(`Hapus pesan #${id} dari database dan catat ke Blockchain Ledger?`)) {
+      return;
+    }
+    setErrorMsg('');
+    try {
+      await deleteMessage(id, sender);
+      setDecryptedMap((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      await loadMessages();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal menghapus pesan');
     }
   }
 
@@ -87,6 +120,7 @@ export function useMessages() {
     loading,
     handleEncrypt,
     handleDecrypt,
+    handleDelete,
     loadMessages,
   };
 }

@@ -21,3 +21,10 @@ export async function decryptMessage(
 ): Promise<{ plaintext: string }> {
   return await apiRequest('/api/messages/decrypt', 'POST', { id, passphrase });
 }
+
+export async function deleteMessage(
+  id: number,
+  actor?: string
+): Promise<{ success: boolean; message: string; id: number }> {
+  return await apiRequest('/api/messages/delete', 'POST', { id, actor });
+}

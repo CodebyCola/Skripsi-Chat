@@ -16,8 +16,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DONGLE_MASTER_SECRET =
-  process.env.AEGIS_DONGLE_SECRET || 'AegisVault_Hardware_Dongle_Master_Key_2026!';
-const DONGLE_FILENAME = '.aegis_key';
+  process.env.SKRIPSI_DONGLE_SECRET ||
+  'SkripsiChat_Hardware_Dongle_Master_Key_2026!';
+const LEGACY_DONGLE_MASTER_SECRET =
+  process.env.AEGIS_DONGLE_SECRET ||
+  'AegisVault_Hardware_Dongle_Master_Key_2026!';
+
+export const DONGLE_FILENAMES = ['.skripsi_key', '.aegis_key'];
+export const DONGLE_FILENAME = '.skripsi_key';
 
 export interface DonglePayload {
   username: string;
@@ -33,16 +39,21 @@ export interface DetectedDriveInfo {
   decodedPayload?: DonglePayload | null;
 }
 
-function getDerivedAesKey(): Buffer {
-  return crypto.createHash('sha256').update(DONGLE_MASTER_SECRET).digest();
+function getDerivedAesKey(secret: string = DONGLE_MASTER_SECRET): Buffer {
+  return crypto.createHash('sha256').update(secret).digest();
 }
 
 /**
  * Membuat tanda tangan HMAC-SHA256 untuk isi token USB Dongle
  */
-function signDongleData(username: string, dongleId: string, issuedAt: string): string {
+function signDongleData(
+  username: string,
+  dongleId: string,
+  issuedAt: string,
+  secret: string = DONGLE_MASTER_SECRET
+): string {
   return crypto
-    .createHmac('sha256', DONGLE_MASTER_SECRET)
+    .createHmac('sha256', secret)
     .update(`${username}|${dongleId}|${issuedAt}`)
     .digest('hex');
 }
@@ -72,55 +83,76 @@ export function generateDongleKeyFileContent(username: string, dongleId?: string
 
   return {
     dongleId: finalDongleId,
-    encryptedKeyFileContent: `AEGIS-USB-V1:${iv.toString('hex')}:${encrypted}`,
+    encryptedKeyFileContent: `SKRIPSI-USB-V1:${iv.toString('hex')}:${encrypted}`,
   };
 }
 
 /**
- * Mendekripsi dan memvalidasi keaslian file `.aegis_key` dari USB Dongle
+ * Mendekripsi dan memvalidasi keaslian file `.skripsi_key` atau `.aegis_key` dari USB Dongle
  */
 export function verifyDongleKeyFileContent(
   encryptedContent: string,
   expectedUsername?: string,
   expectedDongleId?: string
 ): { valid: boolean; payload: DonglePayload | null; reason?: string } {
-  try {
-    const trimmed = encryptedContent.trim();
-    const parts = trimmed.split(':');
-    if (parts.length !== 3 || parts[0] !== 'AEGIS-USB-V1') {
-      return { valid: false, payload: null, reason: 'Format header file .aegis_key tidak dikenali' };
+  const secrets = [DONGLE_MASTER_SECRET, LEGACY_DONGLE_MASTER_SECRET];
+
+  for (const sec of secrets) {
+    try {
+      const trimmed = encryptedContent.trim();
+      const parts = trimmed.split(':');
+      if (parts.length !== 3 || (parts[0] !== 'SKRIPSI-USB-V1' && parts[0] !== 'AEGIS-USB-V1')) {
+        continue;
+      }
+
+      const iv = Buffer.from(parts[1], 'hex');
+      const ciphertext = parts[2];
+
+      const decipher = crypto.createDecipheriv('aes-256-cbc', getDerivedAesKey(sec), iv);
+      let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+
+      const payload = JSON.parse(decrypted) as DonglePayload;
+      const expectedSig = signDongleData(payload.username, payload.dongleId, payload.issuedAt, sec);
+
+      if (payload.signature !== expectedSig) {
+        continue;
+      }
+
+      if (expectedUsername && payload.username.toLowerCase() !== expectedUsername.toLowerCase()) {
+        return {
+          valid: false,
+          payload,
+          reason: `USB Dongle ini terdaftar untuk user '${payload.username}', bukan '${expectedUsername}'`,
+        };
+      }
+
+      if (expectedDongleId && payload.dongleId !== expectedDongleId) {
+        return { valid: false, payload, reason: 'ID seri USB Dongle tidak cocok dengan akun' };
+      }
+
+      return { valid: true, payload };
+    } catch {
+      // Coba secret berikutnya
     }
-
-    const iv = Buffer.from(parts[1], 'hex');
-    const ciphertext = parts[2];
-
-    const decipher = crypto.createDecipheriv('aes-256-cbc', getDerivedAesKey(), iv);
-    let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    const payload = JSON.parse(decrypted) as DonglePayload;
-    const expectedSig = signDongleData(payload.username, payload.dongleId, payload.issuedAt);
-
-    if (payload.signature !== expectedSig) {
-      return { valid: false, payload: null, reason: 'Signature HMAC USB Dongle tidak valid' };
-    }
-
-    if (expectedUsername && payload.username.toLowerCase() !== expectedUsername.toLowerCase()) {
-      return {
-        valid: false,
-        payload,
-        reason: `USB Dongle ini terdaftar untuk user '${payload.username}', bukan '${expectedUsername}'`,
-      };
-    }
-
-    if (expectedDongleId && payload.dongleId !== expectedDongleId) {
-      return { valid: false, payload, reason: 'ID seri USB Dongle tidak cocok dengan akun' };
-    }
-
-    return { valid: true, payload };
-  } catch {
-    return { valid: false, payload: null, reason: 'File .aegis_key rusak atau kunci dekripsi salah' };
   }
+
+  return { valid: false, payload: null, reason: 'File kunci dongle rusak atau signature HMAC tidak valid' };
+}
+
+function findDongleKeyInDir(dirPath: string): { keyFile: string; content: string } | null {
+  for (const fn of DONGLE_FILENAMES) {
+    const fullPath = path.join(dirPath, fn);
+    if (fs.existsSync(fullPath)) {
+      try {
+        const content = fs.readFileSync(fullPath, 'utf8').trim();
+        if (content) return { keyFile: fullPath, content };
+      } catch {
+        // Abaikan jika tidak terbaca
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -131,18 +163,13 @@ export function scanConnectedUsbDrives(virtualDongleDir?: string): DetectedDrive
 
   // 1. Cek folder simulasi USB (berguna saat ngoding tanpa colok flashdisk fisik)
   if (virtualDongleDir && fs.existsSync(virtualDongleDir)) {
-    const keyFile = path.join(virtualDongleDir, DONGLE_FILENAME);
-    const hasKeyFile = fs.existsSync(keyFile);
-    let keyContent: string | undefined;
+    const found = findDongleKeyInDir(virtualDongleDir);
+    const hasKeyFile = !!found;
+    let keyContent: string | undefined = found?.content;
     let decodedPayload: DonglePayload | null = null;
 
-    if (hasKeyFile) {
-      try {
-        keyContent = fs.readFileSync(keyFile, 'utf8').trim();
-        decodedPayload = verifyDongleKeyFileContent(keyContent).payload;
-      } catch {
-        // Abaikan jika gagal baca
-      }
+    if (keyContent) {
+      decodedPayload = verifyDongleKeyFileContent(keyContent).payload;
     }
 
     if (hasKeyFile) {
@@ -161,13 +188,12 @@ export function scanConnectedUsbDrives(virtualDongleDir?: string): DetectedDrive
     const driveRoot = `${letter}:\\`;
     try {
       if (fs.existsSync(driveRoot)) {
-        const keyFilePath = path.join(driveRoot, DONGLE_FILENAME);
-        const hasKeyFile = fs.existsSync(keyFilePath);
-        let keyContent: string | undefined;
+        const found = findDongleKeyInDir(driveRoot);
+        const hasKeyFile = !!found;
+        let keyContent: string | undefined = found?.content;
         let decodedPayload: DonglePayload | null = null;
 
-        if (hasKeyFile) {
-          keyContent = fs.readFileSync(keyFilePath, 'utf8').trim();
+        if (keyContent) {
           decodedPayload = verifyDongleKeyFileContent(keyContent).payload;
         }
 
@@ -187,7 +213,7 @@ export function scanConnectedUsbDrives(virtualDongleDir?: string): DetectedDrive
 }
 
 /**
- * Menulis file `.aegis_key` langsung ke Drive USB atau folder simulasi USB
+ * Menulis file `.skripsi_key` (dan `.aegis_key` kompatibilitas) langsung ke Drive USB atau folder simulasi USB
  */
 export function provisionDongleToPath(targetDir: string, username: string): {
   success: boolean;
@@ -201,6 +227,13 @@ export function provisionDongleToPath(targetDir: string, username: string): {
   const { dongleId, encryptedKeyFileContent } = generateDongleKeyFileContent(username);
   const filePath = path.join(targetDir, DONGLE_FILENAME);
   fs.writeFileSync(filePath, encryptedKeyFileContent, 'utf8');
+
+  // Buat juga file legacy .aegis_key agar kompatibel dengan sistem lama
+  try {
+    fs.writeFileSync(path.join(targetDir, '.aegis_key'), encryptedKeyFileContent, 'utf8');
+  } catch {
+    // Abaikan
+  }
 
   return {
     success: true,

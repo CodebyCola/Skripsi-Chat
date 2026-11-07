@@ -19,6 +19,7 @@ import {
 import {
   handleCreateSuperEncryptedMessage,
   handleDecryptSuperMessage,
+  handleDeleteMessage,
 } from './routes/message.routes.ts';
 import {
   handleUploadAndEncryptFile,
@@ -78,6 +79,13 @@ test('Integrasi Pilar 2A & 2B: Pesan Super Enkripsi & File ChaCha20 di Database'
     passphrase: 'PassUji',
   });
   assert.equal(msgDecrypted.plaintext, 'Isi rahasia pesan super enkripsi 12345');
+
+  // Uji Hapus Pesan Super Enkripsi
+  const msgDeleted = handleDeleteMessage({ id: msgCreated.id, actor: 'dosen_pembimbing' });
+  assert.equal(msgDeleted.success, true);
+  assert.throws(() => {
+    handleDecryptSuperMessage({ id: msgCreated.id, passphrase: 'PassUji' });
+  }, /Pesan tidak ditemukan/);
 
   const rawFileText = 'Dokumen Rahasia Negara - Uji ChaCha20';
   const fileCreated = handleUploadAndEncryptFile({

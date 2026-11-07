@@ -64,7 +64,7 @@ export function LoginPage() {
 
     if (authStatus?.serverOnline && !authStatus?.userExists) {
       setErrorMsg(
-        `Akun "@${username.trim()}" tidak ditemukan di Server. Gunakan username terdaftar (contoh: editor_aegis) atau registrasi terlebih dahulu.`
+        `Akun "@${username.trim()}" tidak ditemukan di Server. Gunakan username terdaftar (contoh: dosen_pembimbing atau mahasiswa_01) atau registrasi terlebih dahulu.`
       );
       return;
     }

@@ -60,17 +60,20 @@ test('Pilar 1A: Password Hashing (Scrypt + Salt) & Biometric Euclidean Match', (
   assert.equal(matchOther.matched, false);
 });
 
-test('Pilar 1B: Hardware Dongle Keyfile (.aegis_key) AES-256 + HMAC-SHA256', () => {
-  const generated = generateDongleKeyFileContent('jurnalis_budi');
-  assert.ok(generated.encryptedKeyFileContent.startsWith('AEGIS-USB-V1:'));
+test('Pilar 1B: Hardware Dongle Keyfile (.skripsi_key / .aegis_key) AES-256 + HMAC-SHA256', () => {
+  const generated = generateDongleKeyFileContent('dosen_pembimbing');
+  assert.ok(
+    generated.encryptedKeyFileContent.startsWith('SKRIPSI-USB-V1:') ||
+    generated.encryptedKeyFileContent.startsWith('AEGIS-USB-V1:')
+  );
 
   const verified = verifyDongleKeyFileContent(
     generated.encryptedKeyFileContent,
-    'jurnalis_budi',
+    'dosen_pembimbing',
     generated.dongleId
   );
   assert.equal(verified.valid, true);
-  assert.equal(verified.payload?.username, 'jurnalis_budi');
+  assert.equal(verified.payload?.username, 'dosen_pembimbing');
 
   // Coba dengan username berbeda -> harus ditolak
   const wrongUser = verifyDongleKeyFileContent(
