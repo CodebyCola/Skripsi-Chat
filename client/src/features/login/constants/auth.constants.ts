@@ -5,6 +5,6 @@ export const AUTH_ASSETS = {
 
 export const AUTH_DEFAULTS = {
   defaultUsername: 'dosen_pembimbing',
-  defaultPassword: 'SkripsiChat2026!',
+  defaultPassword: 'dosen123',
   redirectCountdownSeconds: 30,
 };
