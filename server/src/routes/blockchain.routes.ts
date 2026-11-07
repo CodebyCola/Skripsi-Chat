@@ -16,7 +16,8 @@ export function handleBlockchainRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   pathname: string,
-  method: string
+  method: string,
+  urlObj?: URL
 ): boolean {
   if (method === 'GET' && pathname === '/api/blockchain') {
     BlockchainController.getBlockchain(req, res);
@@ -28,6 +29,22 @@ export function handleBlockchainRoutes(
   }
   if (method === 'POST' && pathname === '/api/blockchain/restore') {
     BlockchainController.restoreBlockchain(req, res);
+    return true;
+  }
+  if (method === 'POST' && pathname === '/api/blockchain/issue-asset') {
+    BlockchainController.issueAsset(req, res);
+    return true;
+  }
+  if (method === 'POST' && pathname === '/api/blockchain/verify-document') {
+    BlockchainController.verifyDocument(req, res);
+    return true;
+  }
+  if (method === 'GET' && pathname === '/api/blockchain/student-assets' && urlObj) {
+    BlockchainController.getStudentAssets(req, res, urlObj);
+    return true;
+  }
+  if (method === 'GET' && pathname === '/api/blockchain/issuer-assets' && urlObj) {
+    BlockchainController.listAssetsByIssuer(req, res, urlObj);
     return true;
   }
 

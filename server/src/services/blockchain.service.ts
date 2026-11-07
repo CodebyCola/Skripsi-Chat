@@ -61,6 +61,7 @@ export class BlockchainService {
         assetTitle: cleanTitle,
         assetDataHash: blocks[i].assetDataHash,
         previousHash: prevHash,
+        signature: blocks[i].signature,
       });
 
       blocks[i] = remined;

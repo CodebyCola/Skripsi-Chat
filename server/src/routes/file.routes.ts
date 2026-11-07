@@ -35,6 +35,10 @@ export function handleFileRoutes(
     FileController.decryptFile(req, res);
     return true;
   }
+  if (method === 'POST' && pathname === '/api/files/review') {
+    FileController.reviewFile(req, res);
+    return true;
+  }
 
   return false;
 }

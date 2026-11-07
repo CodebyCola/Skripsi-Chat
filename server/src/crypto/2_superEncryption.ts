@@ -171,3 +171,165 @@ export function superDecryptText(
     mode,
   };
 }
+
+/**
+ * ============================================================================
+ * SPESIFIKASI SKRIPSICHAT BAGIAN 11.3:
+ * TRANSPOSISI KOLOM & SUPER ENKRIPSI BERBASIS SUBKEYS (HKDF)
+ * ============================================================================
+ */
+
+export interface SubKeyPayload {
+  k_text_vig: Buffer;
+  k_text_trans: Buffer;
+  k_text_aes: Buffer;
+}
+
+export interface EncryptedMessageBlob {
+  ciphertextHex: string;
+  nonceHex: string;
+  authTagHex: string;
+  combinedPayload: string;
+}
+
+/**
+ * Bentuk permutasi kolom 0..15 dari kunci 16-byte secara deterministik (Fisher-Yates)
+ */
+export function permFromKey(key16: Buffer): number[] {
+  const perm = Array.from({ length: 16 }, (_, i) => i);
+  // Aliran pseudo-random deterministik dari SHA-256(key16)
+  const hash = crypto.createHash('sha256').update(key16).digest();
+
+  for (let i = perm.length - 1; i > 0; i--) {
+    const j = hash[i % hash.length] % (i + 1);
+    const temp = perm[i];
+    perm[i] = perm[j];
+    perm[j] = temp;
+  }
+  return perm;
+}
+
+/**
+ * Transposisi Kolom byte-wise
+ */
+export function transpositionEncrypt(data: Buffer, perm: number[]): Buffer {
+  const cols = perm.length;
+  const rem = data.length % cols;
+  const paddingLen = rem === 0 ? 0 : cols - rem;
+  const padded = Buffer.concat([data, Buffer.alloc(paddingLen, 0)]);
+  const rows = padded.length / cols;
+
+  const out = Buffer.alloc(padded.length);
+  let outIdx = 0;
+
+  for (let c = 0; c < cols; c++) {
+    const colIdx = perm[c];
+    for (let r = 0; r < rows; r++) {
+      out[outIdx++] = padded[r * cols + colIdx];
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Invers Transposisi Kolom byte-wise
+ */
+export function transpositionDecrypt(data: Buffer, perm: number[]): Buffer {
+  const cols = perm.length;
+  const rows = data.length / cols;
+  const grid = Buffer.alloc(data.length);
+  let inIdx = 0;
+
+  for (let c = 0; c < cols; c++) {
+    const colIdx = perm[c];
+    for (let r = 0; r < rows; r++) {
+      grid[r * cols + colIdx] = data[inIdx++];
+    }
+  }
+
+  return grid;
+}
+
+/**
+ * FR-CHAT-02: Super Enkripsi Teks Lengkap (Vigenère -> Transposisi -> AES-256-GCM)
+ */
+export function superEncryptWithSubkeys(
+  plaintext: string,
+  subkeys: SubKeyPayload,
+  aad: string = ''
+): EncryptedMessageBlob {
+  const plainBytes = Buffer.from(plaintext, 'utf8');
+
+  // Prefix panjang asli 4-byte (big-endian) agar padding transposisi dapat dipotong sempurna
+  const lenHeader = Buffer.alloc(4);
+  lenHeader.writeUInt32BE(plainBytes.length, 0);
+  const withHeader = Buffer.concat([lenHeader, plainBytes]);
+
+  // Lapis 1: Vigenère Byte-wise (Mod 256)
+  const afterVig = Buffer.alloc(withHeader.length);
+  for (let i = 0; i < withHeader.length; i++) {
+    afterVig[i] = (withHeader[i] + subkeys.k_text_vig[i % subkeys.k_text_vig.length]) % 256;
+  }
+
+  // Lapis 2: Transposisi Kolom
+  const perm = permFromKey(subkeys.k_text_trans);
+  const afterTrans = transpositionEncrypt(afterVig, perm);
+
+  // Lapis 3: AES-256-GCM (Authenticated Encryption)
+  const nonce = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', subkeys.k_text_aes, nonce);
+  if (aad) cipher.setAAD(Buffer.from(aad, 'utf8'));
+
+  const ciphertext = Buffer.concat([cipher.update(afterTrans), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  const ciphertextHex = ciphertext.toString('hex');
+  const nonceHex = nonce.toString('hex');
+  const authTagHex = authTag.toString('hex');
+
+  return {
+    ciphertextHex,
+    nonceHex,
+    authTagHex,
+    combinedPayload: `SUPER-GCM-V1:${nonceHex}:${authTagHex}:${ciphertextHex}`,
+  };
+}
+
+/**
+ * FR-CHAT-03 & 05: Super Dekripsi Teks Lengkap (AES-256-GCM -> Invers Transposisi -> Invers Vigenère)
+ */
+export function superDecryptWithSubkeys(
+  blob: { ciphertextHex: string; nonceHex: string; authTagHex: string },
+  subkeys: SubKeyPayload,
+  aad: string = ''
+): string {
+  const nonce = Buffer.from(blob.nonceHex, 'hex');
+  const authTag = Buffer.from(blob.authTagHex, 'hex');
+  const ciphertext = Buffer.from(blob.ciphertextHex, 'hex');
+
+  // Balik Lapis 3: AES-256-GCM
+  const decipher = crypto.createDecipheriv('aes-256-gcm', subkeys.k_text_aes, nonce);
+  if (aad) decipher.setAAD(Buffer.from(aad, 'utf8'));
+  decipher.setAuthTag(authTag);
+
+  const afterAes = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+
+  // Balik Lapis 2: Invers Transposisi Kolom
+  const perm = permFromKey(subkeys.k_text_trans);
+  const afterTransInv = transpositionDecrypt(afterAes, perm);
+
+  // Balik Lapis 1: Invers Vigenère
+  const afterVigInv = Buffer.alloc(afterTransInv.length);
+  for (let i = 0; i < afterTransInv.length; i++) {
+    afterVigInv[i] =
+      (afterTransInv[i] - subkeys.k_text_vig[i % subkeys.k_text_vig.length] + 256) % 256;
+  }
+
+  // Baca 4-byte panjang asli
+  const originalLength = afterVigInv.readUInt32BE(0);
+  const plainBytes = afterVigInv.subarray(4, 4 + originalLength);
+
+  return plainBytes.toString('utf8');
+}
+

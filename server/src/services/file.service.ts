@@ -172,4 +172,44 @@ export class FileService {
       );
     }
   }
+
+  /**
+   * FR-FILE-05: Dosen mengubah status review draf skripsi (SUBMITTED, REVISION, APPROVED)
+   */
+  static reviewFile(params: {
+    fileId: number;
+    status: 'SUBMITTED' | 'REVISION' | 'APPROVED';
+    reviewNote?: string;
+    reviewer: string;
+  }) {
+    const nowIso = new Date().toISOString();
+    const res = db
+      .prepare(`
+        UPDATE EncryptedFile
+        SET status = ?,
+            reviewedBy = ?,
+            reviewNote = ?,
+            reviewedAt = ?
+        WHERE id = ?
+      `)
+      .run(
+        params.status,
+        params.reviewer,
+        params.reviewNote || '',
+        nowIso,
+        params.fileId
+      );
+
+    if (res.changes === 0) {
+      throw new Error(`File ID #${params.fileId} tidak ditemukan`);
+    }
+
+    return {
+      success: true,
+      fileId: params.fileId,
+      status: params.status,
+      reviewer: params.reviewer,
+      reviewedAt: nowIso,
+    };
+  }
 }

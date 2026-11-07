@@ -29,6 +29,7 @@ export interface BlockRecord {
   previousHash: string;
   nonce: number;
   hash: string;
+  signature?: string;
 }
 
 export interface BlockValidationDetail {
@@ -61,17 +62,30 @@ export function calculateBlockHash(input: {
   assetDataHash: string;
   previousHash: string;
   nonce: number;
+  signature?: string;
 }): string {
-  const rawString = [
-    input.index,
-    input.timestamp,
-    input.actionType,
-    input.actor,
-    input.assetTitle,
-    input.assetDataHash,
-    input.previousHash,
-    input.nonce,
-  ].join('|');
+  const rawString = input.signature
+    ? [
+        input.index,
+        input.timestamp,
+        input.actionType,
+        input.actor,
+        input.assetTitle,
+        input.assetDataHash,
+        input.previousHash,
+        input.signature,
+        input.nonce,
+      ].join('|')
+    : [
+        input.index,
+        input.timestamp,
+        input.actionType,
+        input.actor,
+        input.assetTitle,
+        input.assetDataHash,
+        input.previousHash,
+        input.nonce,
+      ].join('|');
 
   return crypto.createHash('sha256').update(rawString, 'utf8').digest('hex');
 }
@@ -94,6 +108,7 @@ export function createMinedBlock(params: {
   assetTitle: string;
   assetDataHash: string;
   previousHash: string;
+  signature?: string;
 }): BlockRecord {
   const timestamp = params.timestamp || new Date().toISOString();
   let nonce = 0;
@@ -108,6 +123,7 @@ export function createMinedBlock(params: {
       assetTitle: params.assetTitle,
       assetDataHash: params.assetDataHash,
       previousHash: params.previousHash,
+      signature: params.signature,
       nonce,
     });
 
@@ -125,6 +141,7 @@ export function createMinedBlock(params: {
     assetTitle: params.assetTitle,
     assetDataHash: params.assetDataHash,
     previousHash: params.previousHash,
+    signature: params.signature || '',
     nonce,
     hash,
   };
@@ -202,3 +219,64 @@ export function validateBlockchain(blocks: BlockRecord[]): ChainValidationResult
     details,
   };
 }
+
+/**
+ * Serialisasi JSON Kanonik (Kunci diurutkan secara alfabetis, tanpa spasi ekstra)
+ */
+export function canonicalJson(obj: any): string {
+  if (obj === null || typeof obj !== 'object') {
+    return JSON.stringify(obj);
+  }
+  if (Array.isArray(obj)) {
+    return `[${obj.map((item) => canonicalJson(item)).join(',')}]`;
+  }
+  const sortedKeys = Object.keys(obj).sort();
+  const pairs = sortedKeys.map(
+    (key) => `${JSON.stringify(key)}:${canonicalJson(obj[key])}`
+  );
+  return `{${pairs.join(',')}}`;
+}
+
+/**
+ * FR-CHAIN-03: Tanda Tangan Digital RSA-PSS (SHA-256)
+ */
+export function signData(data: string, privateKeyPem: string): string {
+  const signer = crypto.createSign('sha256');
+  signer.update(data, 'utf8');
+  signer.end();
+  return signer.sign(
+    {
+      key: privateKeyPem,
+      padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+      saltLength: 32,
+    },
+    'base64'
+  );
+}
+
+/**
+ * FR-CHAIN-03: Verifikasi Tanda Tangan Digital RSA-PSS (SHA-256)
+ */
+export function verifyDataSignature(
+  data: string,
+  signatureBase64: string,
+  publicKeyPem: string
+): boolean {
+  try {
+    const verifier = crypto.createVerify('sha256');
+    verifier.update(data, 'utf8');
+    verifier.end();
+    return verifier.verify(
+      {
+        key: publicKeyPem,
+        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: 32,
+      },
+      signatureBase64,
+      'base64'
+    );
+  } catch {
+    return false;
+  }
+}
+

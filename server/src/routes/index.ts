@@ -7,6 +7,9 @@ import { handleMessageRoutes } from './message.routes.ts';
 import { handleFileRoutes } from './file.routes.ts';
 import { handleStegoRoutes } from './stego.routes.ts';
 import { handleBlockchainRoutes } from './blockchain.routes.ts';
+import { handleVaultRoutes } from './vault.routes.ts';
+import { handleAdminRoutes } from './admin.routes.ts';
+import { handleChatRoutes } from './chat.routes.ts';
 import { sendJson } from '../middlewares/error.middleware.ts';
 
 export function routeRequest(
@@ -43,8 +46,17 @@ export function routeRequest(
   if (handleStegoRoutes(req, res, pathname, method)) return;
 
   // 5. Blockchain Audit Ledger Routes
-  if (handleBlockchainRoutes(req, res, pathname, method)) return;
+  if (handleBlockchainRoutes(req, res, pathname, method, urlObj)) return;
 
-  // 6. Not Found
+  // 6. Vault Important Message Routes (FR-VAULT-01..04)
+  if (handleVaultRoutes(req, res, pathname, method, urlObj)) return;
+
+  // 7. Admin & Provisioning Routes (FR-ADM-01..04)
+  if (handleAdminRoutes(req, res, pathname, method, urlObj)) return;
+
+  // 8. Bimbingan Chat Routes (FR-CHAT-01..06)
+  if (handleChatRoutes(req, res, pathname, method, urlObj)) return;
+
+  // 9. Not Found
   sendJson(res, 404, { error: `Endpoint ${method} ${pathname} tidak ditemukan` });
 }

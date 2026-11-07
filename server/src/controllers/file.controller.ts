@@ -32,4 +32,14 @@ export class FileController {
       handleError(res, err);
     }
   }
+
+  static async reviewFile(req: http.IncomingMessage, res: http.ServerResponse) {
+    try {
+      const body = await parseJsonBody(req);
+      const data = FileService.reviewFile(body);
+      sendJson(res, 200, data);
+    } catch (err) {
+      handleError(res, err);
+    }
+  }
 }
