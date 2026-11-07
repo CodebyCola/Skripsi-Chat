@@ -48,8 +48,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     console.log(`[SKRIPSICHAT] CLIENT PORTAL (NEXT.JS) DI     : http://localhost:3000`);
     console.log('====================================================================');
     console.log('Arsitektur   : Modular (Controllers, Services, Middlewares, Routes)');
-    console.log('Akun Default : dosen_pembimbing (atau editor_aegis)');
-    console.log('Password     : SkripsiChat2026! (atau Aegis2026!)');
+    console.log('Akun Preset  : @mahasiswa_01 & @dosen_pembimbing');
+    console.log('Password     : SkripsiChat2026!');
     console.log('Buka http://localhost:4000 untuk Admin Console (Dongle & Wajah)');
     console.log('====================================================================');
   });

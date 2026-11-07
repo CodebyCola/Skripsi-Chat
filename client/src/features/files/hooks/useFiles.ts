@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { decryptFile, encryptFile, fetchFiles } from '../api/filesApi';
+import { decryptFile, encryptFile, fetchFiles, reviewFile } from '../api/filesApi';
 import { EncryptedFileRecord } from '../types/files.types';
 
 export function useFiles() {
@@ -15,7 +15,7 @@ export function useFiles() {
       const data = await fetchFiles();
       setFiles(data);
     } catch (err: any) {
-      setNotice(`❌ Gagal memuat file: ${err.message}`);
+      setNotice(`Gagal memuat file: ${err.message}`);
     }
   }
 
@@ -35,11 +35,11 @@ export function useFiles() {
           passphrase,
         });
         setNotice(
-          `✅ File '${file.name}' berhasil dienkripsi dengan ChaCha20-Poly1305 di Server!`
+          `File '${file.name}' berhasil dienkripsi dengan ChaCha20-Poly1305 di Server!`
         );
         await loadFiles();
       } catch (err: any) {
-        setNotice(`❌ ${err.message}`);
+        setNotice(err.message || 'Gagal mengenkripsi file');
       } finally {
         setLoading(false);
       }
@@ -56,9 +56,24 @@ export function useFiles() {
       link.href = `data:${res.mimeType};base64,${res.decryptedBase64}`;
       link.download = res.originalName;
       link.click();
-      setNotice(`✅ File '${res.originalName}' berhasil didekripsi & diunduh!`);
+      setNotice(`File '${res.originalName}' berhasil didekripsi & diunduh!`);
     } catch (err: any) {
-      setNotice(`❌ ${err.message}`);
+      setNotice(err.message || 'Gagal mendekripsi file (Pastikan kunci ChaCha20 benar)');
+    }
+  }
+
+  async function handleReviewFile(
+    id: number,
+    status: 'SUBMITTED' | 'REVISION' | 'APPROVED',
+    reviewNote: string
+  ) {
+    setNotice('');
+    try {
+      await reviewFile(id, status, reviewNote);
+      setNotice(`Status draf berhasil diperbarui menjadi ${status}!`);
+      await loadFiles();
+    } catch (err: any) {
+      setNotice(`Gagal meninjau draf: ${err.message}`);
     }
   }
 
@@ -74,6 +89,7 @@ export function useFiles() {
     loading,
     handleFileUpload,
     handleDecryptFile,
+    handleReviewFile,
     loadFiles,
   };
 }

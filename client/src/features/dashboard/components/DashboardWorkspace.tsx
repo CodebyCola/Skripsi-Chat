@@ -6,19 +6,47 @@ import { useCurrentUser } from '../hooks/useCurrentUser';
 import { useConsultationChat } from '../hooks/useConsultationChat';
 import { ChatStream } from './ChatStream';
 import { ChatInputDock } from './ChatInputDock';
+import { CipherInspectModal } from './CipherInspectModal';
+import { ChatMessageItem } from '../types/dashboard.types';
 
 export function DashboardWorkspace() {
   const { user } = useCurrentUser();
-  const { messages, inputText, setInputText, sendMessage, isSending } =
-    useConsultationChat(user?.fullName || user?.username);
+  const {
+    messages,
+    inputText,
+    setInputText,
+    passphrase,
+    setPassphrase,
+    sendMessage,
+    isSending,
+    markImportant,
+    deleteChatMessage,
+    inspectMessage,
+    setInspectMessage,
+  } = useConsultationChat(user);
+
+  function handleMarkImportantPrompt(msg: ChatMessageItem) {
+    const choice = prompt(
+      'Pilih Kategori Pesan Penting:\n1. ACC (Persetujuan Sidang)\n2. REVISI (Catatan Revisi Mayor)\n3. JADWAL_SIDANG (Batas Waktu/Jadwal)\n\nKetik: ACC / REVISI / JADWAL_SIDANG',
+      'ACC'
+    );
+    if (!choice) return;
+
+    const normalized = choice.toUpperCase().trim() as 'ACC' | 'REVISI' | 'JADWAL_SIDANG';
+    if (['ACC', 'REVISI', 'JADWAL_SIDANG'].includes(normalized)) {
+      markImportant(msg.id, msg.content, normalized);
+    } else {
+      markImportant(msg.id, msg.content, 'ACC');
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-canvas">
       {/* WORKSPACE HEADER: Per ketentuan #8 (ID bimbingan dihilangkan & aksi diselaraskan dengan database) */}
-      <div className="h-16 px-6 bg-surface border-b border-sage-border flex items-center justify-between shrink-0">
+      <div className="h-16 px-6 bg-surface border-b border-sage-border flex items-center justify-between shrink-0 flex-wrap gap-2">
         <div className="flex flex-col min-w-0">
           <span className="text-[11px] text-text-secondary">
-            Sesi Diskusi Bimbingan
+            Sesi Diskusi Bimbingan Skripsi
           </span>
           <h1 className="font-display font-semibold text-sm text-text-dark truncate">
             Bab 4: Pengujian Super Enkripsi &amp; Hasil Evaluasi
@@ -26,14 +54,28 @@ export function DashboardWorkspace() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* INTERACTIVE SESSION KEY CONTROL (UNTUK PEMBUKTIAN SIDANG) */}
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sage-border bg-canvas text-xs">
+            <span className="material-symbols-outlined text-sm text-text-muted">key</span>
+            <span className="text-[11px] font-mono text-text-secondary">Kunci Sesi:</span>
+            <input
+              type="text"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+              placeholder="Kunci Sesi..."
+              title="Kunci Super Enkripsi Teks (Ubah untuk menguji dekripsi kunci benar vs salah)"
+              className="bg-transparent border-0 p-0 text-xs font-mono font-semibold text-text-dark w-28 focus:ring-0 focus:outline-none"
+            />
+          </div>
+
           <Link
             href="/dashboard/messages"
             className="h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
           >
             <span className="material-symbols-outlined text-base text-text-secondary">
-              bookmark_add
+              bookmark
             </span>
-            <span>Catat Penting</span>
+            <span>Pesan Penting</span>
           </Link>
 
           <Link
@@ -49,7 +91,12 @@ export function DashboardWorkspace() {
       </div>
 
       {/* CHAT STREAM (SCROLLABLE MESSAGE LIST) */}
-      <ChatStream messages={messages} />
+      <ChatStream
+        messages={messages}
+        onInspect={(msg) => setInspectMessage(msg)}
+        onMarkImportant={handleMarkImportantPrompt}
+        onDelete={deleteChatMessage}
+      />
 
       {/* CHAT INPUT DOCK (BOTTOM ATTACH & SEND) */}
       <ChatInputDock
@@ -57,6 +104,12 @@ export function DashboardWorkspace() {
         onChangeText={setInputText}
         onSend={sendMessage}
         isSending={isSending}
+      />
+
+      {/* MODAL INSPEKTUR SUPER ENKRIPSI 3-LAPIS (KRITERIA #3) */}
+      <CipherInspectModal
+        message={inspectMessage}
+        onClose={() => setInspectMessage(null)}
       />
     </div>
   );

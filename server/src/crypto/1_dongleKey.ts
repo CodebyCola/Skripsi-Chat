@@ -123,7 +123,7 @@ export function verifyDongleKeyFileContent(
         return {
           valid: false,
           payload,
-          reason: `USB Dongle ini terdaftar untuk user '${payload.username}', bukan '${expectedUsername}'`,
+          reason: 'Hardware USB Dongle tidak terdeteksi atau tidak cocok dengan akun ini',
         };
       }
 

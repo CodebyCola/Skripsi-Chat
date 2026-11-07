@@ -12,6 +12,8 @@ import {
   scanConnectedUsbDrives,
   provisionDongleToPath,
   verifyDongleKeyFileContent,
+  generateDongleKeyFileContent,
+  DONGLE_FILENAME,
 } from '../crypto/1_dongleKey.ts';
 import {
   encryptDatabaseColumn,
@@ -75,6 +77,38 @@ export class AuthService {
     } else {
       isVirtualUsbConnected = !isVirtualUsbConnected;
     }
+    return this.getDongleStatus();
+  }
+
+  static switchVirtualDongleUser(targetUser: string) {
+    const user = (targetUser || '').trim();
+    if (!user) {
+      throw new Error('Username target dongle wajib diisi');
+    }
+
+    const userRow = db
+      .prepare('SELECT dongleIdEncrypted FROM User WHERE username = ?')
+      .get(user) as { dongleIdEncrypted: string } | undefined;
+
+    let expectedId = user === 'dosen_pembimbing' ? 'DNG-DSN-2026' : 'DNG-MHS-2026';
+    if (userRow?.dongleIdEncrypted) {
+      try {
+        expectedId = decryptDatabaseColumn(userRow.dongleIdEncrypted);
+      } catch {
+        // Fallback
+      }
+    }
+
+    const targetFile = path.join(VIRTUAL_USB_DIR, `${user}.skripsi_key`);
+    const generated = generateDongleKeyFileContent(user, expectedId);
+    fs.writeFileSync(targetFile, generated.encryptedKeyFileContent, 'utf8');
+    fs.writeFileSync(path.join(VIRTUAL_USB_DIR, DONGLE_FILENAME), generated.encryptedKeyFileContent, 'utf8');
+    try {
+      fs.writeFileSync(path.join(VIRTUAL_USB_DIR, '.aegis_key'), generated.encryptedKeyFileContent, 'utf8');
+    } catch {
+      // Abaikan
+    }
+    isVirtualUsbConnected = true;
     return this.getDongleStatus();
   }
 
@@ -282,7 +316,17 @@ export class AuthService {
 
     if (!userRow) {
       return {
-        ...dongleStatus,
+        dongleDetected: dongleStatus.dongleDetected,
+        virtualUsbConnected: dongleStatus.virtualUsbConnected,
+        detectedDrives: dongleStatus.detectedDrives.map((d) => ({
+          drivePath: d.drivePath,
+          rawPath: d.rawPath,
+          hasKeyFile: d.hasKeyFile,
+          ownerUsername: null,
+          dongleId: null,
+          issuedAt: null,
+        })),
+        activeDongle: null,
         queriedUsername: username,
         userExists: false,
         dongleMatchesUser: false,
@@ -314,8 +358,29 @@ export class AuthService {
         decryptDatabaseColumn(userRow.facePhotoEncrypted).startsWith('data:image/')
     );
 
+    const safeDetectedDrives = dongleStatus.detectedDrives.map((d) => ({
+      drivePath: d.drivePath,
+      rawPath: d.rawPath,
+      hasKeyFile: d.hasKeyFile,
+      ownerUsername: d.ownerUsername?.toLowerCase() === username.toLowerCase() ? d.ownerUsername : null,
+      dongleId: d.ownerUsername?.toLowerCase() === username.toLowerCase() ? d.dongleId : null,
+      issuedAt: d.ownerUsername?.toLowerCase() === username.toLowerCase() ? d.issuedAt : null,
+    }));
+
+    const safeActiveDongle = matchingDrive
+      ? {
+          drivePath: matchingDrive.drivePath,
+          username: matchingDrive.ownerUsername,
+          dongleId: matchingDrive.dongleId,
+          issuedAt: matchingDrive.issuedAt,
+        }
+      : null;
+
     return {
-      ...dongleStatus,
+      dongleDetected: dongleStatus.dongleDetected,
+      virtualUsbConnected: dongleStatus.virtualUsbConnected,
+      detectedDrives: safeDetectedDrives,
+      activeDongle: safeActiveDongle,
       queriedUsername: username,
       userExists: true,
       expectedDongleId,
@@ -510,7 +575,7 @@ export class AuthService {
       );
       if (!matchingDrive) {
         throw new Error(
-          `AKSES DITOLAK: USB Dongle yang aktif di Server adalah milik '${status.activeDongle.username}', bukan milik '${username}'.`
+          'AKSES DITOLAK: Hardware USB Dongle tidak terdeteksi atau tidak cocok dengan akun ini.'
         );
       }
       dongleVerified = true;

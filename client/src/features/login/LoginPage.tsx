@@ -11,6 +11,7 @@ import { Step3VerifiedCard } from './forms/Step3VerifiedCard';
 import { useDongleStatus } from './hooks/useDongleStatus';
 import { useLoginForm } from './hooks/useLoginForm';
 import { useWebcamScanner } from './hooks/useWebcamScanner';
+import { AcademicRole } from './types/auth.types';
 
 export function LoginPage() {
   const {
@@ -70,6 +71,17 @@ export function LoginPage() {
     }
 
     goToStep(2);
+  }
+
+  function handleRoleChange(newRole: AcademicRole) {
+    setRole(newRole);
+    if (newRole === 'student') {
+      setUsername('mahasiswa_01');
+      setPassword('SkripsiChat2026!');
+    } else {
+      setUsername('dosen_pembimbing');
+      setPassword('SkripsiChat2026!');
+    }
   }
 
   function handleGoBackToStep1() {
@@ -152,7 +164,7 @@ export function LoginPage() {
                   {step === 1 && (
                     <Step1CredentialForm
                       role={role}
-                      onRoleChange={setRole}
+                      onRoleChange={handleRoleChange}
                       username={username}
                       onUsernameChange={setUsername}
                       password={password}

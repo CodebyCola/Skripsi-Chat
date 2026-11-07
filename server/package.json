@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --watch src/server.ts",
     "start": "node --watch src/server.ts",
+    "db:reset": "node src/database/reset.ts",
     "test": "node --test --test-concurrency=1 src/crypto/crypto.test.ts src/server.test.ts src/spec.test.ts"
   },
   "dependencies": {

@@ -54,6 +54,10 @@ export function handleAuthRoutes(
     AuthController.toggleVirtualDongle(req, res);
     return true;
   }
+  if (method === 'POST' && pathname === '/api/auth/dongle/switch') {
+    AuthController.switchVirtualDongle(req, res);
+    return true;
+  }
   if (method === 'POST' && pathname === '/api/auth/dongle/provision') {
     AuthController.provisionDongle(req, res);
     return true;

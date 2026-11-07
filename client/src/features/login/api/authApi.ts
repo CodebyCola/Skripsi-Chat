@@ -43,3 +43,9 @@ export async function loginWithCredentialsAndFace(payload: {
     faceDescriptor: payload.faceDescriptor,
   });
 }
+
+export async function switchVirtualDongle(username: string): Promise<any> {
+  return await apiRequest('/api/auth/dongle/switch', 'POST', {
+    username: username.trim(),
+  });
+}

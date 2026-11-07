@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { db, initDatabase } from './db.ts';
+import { AuthService } from './services/auth.service.ts';
 import {
   handleGetDongleStatus,
   handleToggleVirtualDongle,
@@ -46,28 +47,29 @@ test('Integrasi Pilar 1: Login ditolak saat USB Dongle dicabut & diterima saat d
 
   assert.throws(() => {
     handleLoginUser({
-      username: 'editor_aegis',
-      password: 'Aegis2026!',
+      username: 'dosen_pembimbing',
+      password: 'SkripsiChat2026!',
     });
   }, /USB Hardware Dongle/);
 
-  // 2. Colokkan kembali USB Dongle
+  // 2. Colokkan kembali USB Dongle & pasang dongle dosen_pembimbing
   handleToggleVirtualDongle(true);
+  AuthService.switchVirtualDongleUser('dosen_pembimbing');
   const statusOn = handleGetDongleStatus();
   assert.equal(statusOn.dongleDetected, true);
 
   const loginOk = handleLoginUser({
-    username: 'editor_aegis',
-    password: 'Aegis2026!',
+    username: 'dosen_pembimbing',
+    password: 'SkripsiChat2026!',
   });
   assert.equal(loginOk.success, true);
-  assert.equal(loginOk.user.username, 'editor_aegis');
+  assert.equal(loginOk.user.username, 'dosen_pembimbing');
 });
 
 test('Integrasi Pilar 2A & 2B: Pesan Super Enkripsi & File ChaCha20 di Database', () => {
   const msgCreated = handleCreateSuperEncryptedMessage({
     title: 'Bukti Uji Integrasi',
-    sender: 'editor_aegis',
+    sender: 'dosen_pembimbing',
     plaintext: 'Isi rahasia pesan super enkripsi 12345',
     passphrase: 'PassUji',
     mode: 'CBC',
@@ -141,9 +143,11 @@ test('Integrasi Pilar 3 & 4: Steganografi LSB, DB Encryption Inspector, & Blockc
 test('Integrasi Server <-> Client: Simpan Wajah di Server -> Cek Dongle & Verifikasi Biometrik di Client', () => {
   handleToggleVirtualDongle(true);
 
+  AuthService.switchVirtualDongleUser('dosen_pembimbing');
+
   const prevRow = db
     .prepare('SELECT faceDescriptorEncrypted, facePhotoEncrypted, faceUpdatedAt FROM User WHERE username = ?')
-    .get('editor_aegis') as {
+    .get('dosen_pembimbing') as {
     faceDescriptorEncrypted: string;
     facePhotoEncrypted: string;
     faceUpdatedAt: string;
@@ -155,14 +159,14 @@ test('Integrasi Server <-> Client: Simpan Wajah di Server -> Cek Dongle & Verifi
       Number((Math.cos(i * 0.3) * 0.05).toFixed(4))
     );
     const enrollRes = handleEnrollUserFace({
-      username: 'editor_aegis',
+      username: 'dosen_pembimbing',
       faceDescriptor: serverFace,
       facePhotoBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
     });
     assert.equal(enrollRes.success, true);
 
     // 2. Client mengecek status Dongle & apakah Wajah sudah terdaftar di Server
-    const checkStatus = handleCheckClientAuthStatus('editor_aegis');
+    const checkStatus = handleCheckClientAuthStatus('dosen_pembimbing');
     assert.equal(checkStatus.dongleDetected, true);
     assert.equal(checkStatus.dongleMatchesUser, true);
     assert.equal(checkStatus.hasFacePhoto, true);
@@ -170,7 +174,7 @@ test('Integrasi Server <-> Client: Simpan Wajah di Server -> Cek Dongle & Verifi
     // 3. Client mengirim scan wajah orang yang SAMA -> harus matched: true
     const clientSameFace = serverFace.map((v) => Number((v + 0.008).toFixed(4)));
     const verifySame = handleVerifyClientFace({
-      username: 'editor_aegis',
+      username: 'dosen_pembimbing',
       faceDescriptor: clientSameFace,
     });
     assert.equal(verifySame.matched, true);
@@ -178,15 +182,15 @@ test('Integrasi Server <-> Client: Simpan Wajah di Server -> Cek Dongle & Verifi
     // 4. Client mengirim scan wajah orang BERBEDA -> harus matched: false
     const clientWrongFace = serverFace.map((v) => Number((v + 0.09).toFixed(4)));
     const verifyWrong = handleVerifyClientFace({
-      username: 'editor_aegis',
+      username: 'dosen_pembimbing',
       faceDescriptor: clientWrongFace,
     });
     assert.equal(verifyWrong.matched, false);
 
     // 5. Login dengan wajah yang cocok + dongle aktif -> Berhasil
     const loginRes = handleLoginUser({
-      username: 'editor_aegis',
-      password: 'Aegis2026!',
+      username: 'dosen_pembimbing',
+      password: 'SkripsiChat2026!',
       faceDescriptor: clientSameFace,
     });
     assert.equal(loginRes.success, true);
@@ -197,7 +201,7 @@ test('Integrasi Server <-> Client: Simpan Wajah di Server -> Cek Dongle & Verifi
       prevRow.faceDescriptorEncrypted,
       prevRow.facePhotoEncrypted,
       prevRow.faceUpdatedAt,
-      'editor_aegis'
+      'dosen_pembimbing'
     );
   }
 });

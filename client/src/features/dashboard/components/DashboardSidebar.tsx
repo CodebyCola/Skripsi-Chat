@@ -24,13 +24,16 @@ const NAV_ITEMS: NavItemConfig[] = [
     label: 'Naskah & Berkas',
     href: '/dashboard/files',
     icon: 'folder_open',
-    badge: 4,
   },
   {
     label: 'Pesan Penting',
     href: '/dashboard/messages',
     icon: 'bookmark',
-    badge: 2,
+  },
+  {
+    label: 'Steganografi Citra',
+    href: '/dashboard/stego',
+    icon: 'image',
   },
   {
     label: 'Buku Konsultasi & ACC',

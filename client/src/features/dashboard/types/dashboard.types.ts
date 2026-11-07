@@ -35,6 +35,13 @@ export interface ChatMessageItem {
   statusIcon?: string;
   attachment?: ChatAttachment;
   signatureVerified?: boolean;
+  isImportant?: boolean;
+  category?: 'ACC' | 'REVISI' | 'JADWAL_SIDANG' | 'LAINNYA';
+  rawStages?: {
+    stage1VigenerePreview?: string;
+    stage2VernamHex?: string;
+    superCiphertextPayload?: string;
+  };
 }
 
 export interface DashboardModule {

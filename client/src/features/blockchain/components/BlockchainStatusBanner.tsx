@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { BlockchainValidation } from '../types/blockchain.types';
 
@@ -14,22 +16,33 @@ export function BlockchainStatusBanner({
 
   return (
     <div
-      style={{
-        padding: 14,
-        borderRadius: 8,
-        marginBottom: 16,
-        background: isValid
-          ? 'rgba(16,185,129,0.15)'
-          : 'rgba(239,68,68,0.18)',
-        border: `1px solid ${isValid ? '#10b981' : '#ef4444'}`,
-      }}
+      className={`p-4 rounded-xl border flex items-center justify-between mb-6 shadow-xs ${
+        isValid
+          ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950'
+          : 'bg-red-50/60 border-red-200 text-red-950'
+      }`}
     >
-      Status Rantai:{' '}
-      <strong>
-        {isValid
-          ? `✅ VALID (${validation.totalBlocks} Blok — Seluruh Hash SHA-256 Cocok)`
-          : `🚨 INVALID / RUSAK MULAI BLOK #${validation.firstCorruptedIndex}`}
-      </strong>
+      <div className="flex items-center gap-3">
+        <span className="material-symbols-outlined text-2xl text-primary">
+          {isValid ? 'verified' : 'gpp_bad'}
+        </span>
+        <div>
+          <h3 className="font-semibold text-xs">
+            {isValid
+              ? 'Rantai Bukti Blockchain Utuh & Terverifikasi'
+              : `PERINGATAN: Integritas Rantai Rusak pada Blok #${validation.firstCorruptedIndex}`}
+          </h3>
+          <p className="text-[11px] text-text-secondary mt-0.5">
+            {isValid
+              ? `Seluruh ${validation.totalBlocks} blok terhubung sah dengan SHA-256 hash pointer & Proof-of-Work.`
+              : 'Terdapat manipulasi data payload tanpa menghitung ulang nonce dan hash berantai.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="font-mono text-xs font-semibold px-2.5 py-1 rounded bg-surface border border-sage-border text-text-dark shrink-0">
+        Total: {validation.totalBlocks} Blok
+      </div>
     </div>
   );
 }

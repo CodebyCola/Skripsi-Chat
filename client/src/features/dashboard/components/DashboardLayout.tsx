@@ -3,14 +3,20 @@
 import React from 'react';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardSidebar } from './DashboardSidebar';
+import { DongleLockModal } from './DongleLockModal';
+import { useDongleGuard } from '../hooks/useDongleGuard';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { isLocked, checking, recheck } = useDongleGuard();
+  const { logout } = useCurrentUser();
+
   return (
-    <div className="skripsichat-app bg-canvas text-text-dark font-sans h-screen w-screen overflow-hidden flex flex-col antialiased selection:bg-sage-tint selection:text-primary">
+    <div className="skripsichat-app bg-canvas text-text-dark font-sans h-screen w-screen overflow-hidden flex flex-col antialiased selection:bg-sage-tint selection:text-primary relative">
       {/* 1. Header Global */}
       <DashboardHeader />
 
@@ -21,6 +27,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* 3. Hardware Dongle Runtime Lockout Overlay (Kriteria #1) */}
+      {isLocked && (
+        <DongleLockModal
+          onRecheck={recheck}
+          onLogout={logout}
+          checking={checking}
+        />
+      )}
     </div>
   );
 }

@@ -23,6 +23,16 @@ export class AuthController {
     }
   }
 
+  static async switchVirtualDongle(req: http.IncomingMessage, res: http.ServerResponse) {
+    try {
+      const body = await parseJsonBody(req);
+      const data = AuthService.switchVirtualDongleUser(body.username);
+      sendJson(res, 200, data);
+    } catch (err) {
+      handleError(res, err);
+    }
+  }
+
   static async provisionDongle(req: http.IncomingMessage, res: http.ServerResponse) {
     try {
       const body = await parseJsonBody(req);

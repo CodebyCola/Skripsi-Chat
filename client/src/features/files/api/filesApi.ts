@@ -24,3 +24,17 @@ export async function decryptFile(
     passphrase,
   });
 }
+
+export async function reviewFile(
+  fileId: number,
+  status: 'SUBMITTED' | 'REVISION' | 'APPROVED',
+  reviewNote: string,
+  reviewerId: string = 'dosen_pembimbing'
+): Promise<{ success: boolean; status: string; reviewNote: string }> {
+  return await apiRequest('/api/files/review', 'POST', {
+    fileId,
+    status,
+    reviewNote,
+    reviewerId,
+  });
+}

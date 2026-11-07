@@ -83,21 +83,21 @@ export function DongleStatus({
       descText =
         'Pastikan terminal server sudah menyala (`npm start` di folder server).';
     } else if (!dongleActive) {
-      titleText = 'Hardware USB Dongle: NON-AKTIF';
+      titleText = 'Hardware USB Dongle: Tidak Terdeteksi';
       descText =
         'Dongle belum diaktifkan / dicolokkan di Server. Aktifkan dongle melalui Server Console (http://localhost:4000) atau colokkan USB.';
     } else if (!status?.userExists) {
       borderColor = '#f59e0b';
       bgColor = 'rgba(245,158,11,0.09)';
       dotColor = '#f59e0b';
-      titleText = `USB Dongle Aktif, tetapi Username '${username}' Tidak Ditemukan`;
-      descText = `Dongle saat ini terdaftar untuk '${status?.activeDongle?.username}'. Periksa penulisan username Anda.`;
+      titleText = `Username '${username}' Tidak Ditemukan`;
+      descText = 'Periksa kembali penulisan username Anda atau hubungi administrator.';
     } else if (!dongleValidForUser) {
       borderColor = '#f59e0b';
       bgColor = 'rgba(245,158,11,0.09)';
       dotColor = '#f59e0b';
-      titleText = 'USB Dongle Aktif Milik Akun Lain';
-      descText = `Dongle yang terpasang di Server adalah milik '${status?.activeDongle?.username}', bukan milik '${username}'.`;
+      titleText = 'Hardware USB Dongle Tidak Cocok';
+      descText = 'Hardware USB Dongle tidak terdeteksi atau tidak cocok untuk akun ini.';
     } else {
       borderColor = '#10b981';
       bgColor = 'rgba(16,185,129,0.1)';

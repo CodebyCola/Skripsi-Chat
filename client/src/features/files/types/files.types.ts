@@ -6,6 +6,11 @@ export interface EncryptedFileRecord {
   nonceHex: string;
   authTagHex: string;
   originalSha256: string;
+  status?: 'SUBMITTED' | 'REVISION' | 'APPROVED';
+  reviewedBy?: string;
+  reviewNote?: string;
+  reviewedAt?: string;
+  version?: number;
   createdAt?: string;
 }
 

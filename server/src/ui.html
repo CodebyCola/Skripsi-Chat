@@ -382,6 +382,18 @@
             Tanamkan Kunci
           </button>
         </div>
+
+        <div style="margin-top:14px; padding:12px; border:1px solid var(--border); border-radius:8px; background:#0b0f19;">
+          <p style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:8px;">Peralihan Cepat Virtual Dongle:</p>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn-secondary btn-sm" style="flex:1;" onclick="switchDongle('mahasiswa_01')">
+              Colok Dongle @mahasiswa_01
+            </button>
+            <button type="button" class="btn-secondary btn-sm" style="flex:1;" onclick="switchDongle('dosen_pembimbing')">
+              Colok Dongle @dosen_pembimbing
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 2. ENROLL BIOMETRIK WAJAH -->
@@ -594,6 +606,16 @@
           btnToggle.className = 'btn-success';
           btnToggle.textContent = 'Aktifkan Dongle';
         }
+      } catch (err) {
+        notify(err.message, true);
+      }
+    }
+
+    async function switchDongle(username) {
+      try {
+        await fetchApi('/api/auth/dongle/switch', 'POST', { username });
+        await refreshDongleStatus();
+        notify(`Virtual dongle berhasil dipasang untuk @${username}`);
       } catch (err) {
         notify(err.message, true);
       }

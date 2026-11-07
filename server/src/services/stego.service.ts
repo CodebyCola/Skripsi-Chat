@@ -12,6 +12,7 @@ import {
   encryptDatabaseColumn,
   decryptDatabaseColumn,
 } from '../crypto/3_dbEncryption.ts';
+import { VaultService } from './vault.service.ts';
 
 export class StegoService {
   static getStegoImages() {
@@ -192,11 +193,14 @@ export class StegoService {
       createdAt: string;
     }>;
 
+    const importantList = VaultService.listImportant();
+    const rawImportant = db.prepare('SELECT * FROM ImportantMessage').all() as any[];
+
     return {
       encryptionSpec: {
         columnEncryptionAlgorithm: 'AES-256-GCM (Authenticated Encryption)',
         passwordHashAlgorithm: 'Scrypt (N=16384, r=8, p=1) + 16-Byte Random Salt',
-        sqliteFilePath: 'server/prisma/dev.db',
+        sqliteFilePath: 'server/vault.db',
       },
       usersTable: rawUsers.map((u) => ({
         id: u.id,
@@ -226,6 +230,25 @@ export class StegoService {
           mode: m.mode,
         },
       })),
+      importantMessagesTable: rawImportant.map((imp) => {
+        const dec = importantList.find((i) => i.id === imp.id);
+        return {
+          id: imp.id,
+          convId: imp.convId,
+          messageId: imp.messageId,
+          category: imp.category,
+          markedBy: imp.markedBy,
+          markedAt: imp.markedAt,
+          rawInSqlite: {
+            contentEnc: imp.contentEnc,
+            nonceHex: imp.nonceHex,
+            authTagHex: imp.authTagHex,
+          },
+          decryptedInApp: {
+            contentPlain: dec?.contentPlain || '',
+          },
+        };
+      }),
     };
   }
 }
