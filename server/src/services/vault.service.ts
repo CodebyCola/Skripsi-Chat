@@ -12,12 +12,10 @@ import { db } from '../database/connection.ts';
 import { KeysService } from './keys.service.ts';
 import { AuditService } from './audit.service.ts';
 import { AppError, ErrorCodes } from '../config/errors.ts';
-import { AppError, ErrorCodes } from '../config/errors.ts';
 import { ChatService } from './chat.service.ts';
 import type { Session } from './session.service.ts';
 
 const CATEGORIES = ['ACC', 'REVISI', 'JADWAL_SIDANG', 'LAINNYA'] as const;
-
 
 export interface ImportantMessageRecord {
   id: number;

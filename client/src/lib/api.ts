@@ -9,6 +9,9 @@ export const SERVER_CONSOLE_URL =
 
 export const TOKEN_KEY = 'skripsichat_token';
 
+/** Dikirim ke window saat sesi habis/idle-lock di halaman dashboard (ditampilkan sebagai banner). */
+export const SESSION_EXPIRED_EVENT = 'skripsichat:session-expired';
+
 /** Error dari server yang membawa status HTTP & kode resmi (Spesifikasi Bagian 13). */
 export class ApiError extends Error {
   status: number;
@@ -73,7 +76,11 @@ export async function apiRequest<T = any>(
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem('skripsichat_user');
       localStorage.removeItem('aegis_user');
-      if (window.location.pathname !== '/') window.location.href = '/';
+      if (window.location.pathname.startsWith('/dashboard')) {
+        window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: data?.error }));
+      } else if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
     }
     const fallback =
       FRIENDLY[data?.code] ||
@@ -83,14 +90,4 @@ export async function apiRequest<T = any>(
     throw new ApiError(data?.error || fallback, res.status, data?.code);
   }
   return data as T;
-}
-export const TOKEN_KEY = 'skripsichat_token';
-
-/** Dikirim ke window saat sesi habis/idle-lock di halaman dashboard (ditampilkan sebagai banner). */
-export const SESSION_EXPIRED_EVENT = 'skripsichat:session-expired';
-if (window.location.pathname !== '/') window.location.href = '/';
-if (window.location.pathname.startsWith('/dashboard')) {
-  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: data?.error }));
-} else if (window.location.pathname !== '/') {
-  window.location.href = '/';
 }
