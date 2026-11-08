@@ -2,12 +2,14 @@ export * from './components/DashboardLayout';
 export * from './components/PageShell';
 export * from './components/DashboardHeader';
 export * from './components/DashboardSidebar';
+export * from './components/ContextSecurityPanel';
 export * from './components/DashboardWorkspace';
 export * from './components/DashboardOverview';
 export * from './components/ChatStream';
 export * from './components/ChatInputDock';
 export * from './hooks/useCurrentUser';
 export * from './hooks/useConsultationChat';
+export * from './constants/navigation';
 export * from './types/dashboard.types';
 export * from './utils';
 

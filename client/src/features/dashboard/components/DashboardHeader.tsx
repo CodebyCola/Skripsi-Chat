@@ -2,7 +2,12 @@
 
 import React from 'react';
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  contextOpen?: boolean;
+  onToggleContext?: () => void;
+}
+
+export function DashboardHeader({ contextOpen = false, onToggleContext }: DashboardHeaderProps) {
   return (
     <header className="h-14 bg-surface border-b border-sage-border flex items-center justify-between px-6 shrink-0 z-20">
       {/* BRAND (Tanpa icon per ketentuan #1 & #2) */}
@@ -17,6 +22,21 @@ export function DashboardHeader() {
 
       {/* UTILITY ACTIONS (Per ketentuan #3 & #4: tanpa badge sesi, lonceng & help tetap) */}
       <div className="flex items-center gap-2">
+        {onToggleContext && (
+          <button
+            type="button"
+            title="Konteks & Keamanan"
+            aria-pressed={contextOpen}
+            onClick={onToggleContext}
+            className={`w-8 h-8 rounded-md flex items-center justify-center border transition cursor-pointer ${
+              contextOpen
+                ? 'bg-sage-tint text-primary border-sage-border'
+                : 'text-text-secondary hover:text-text-dark hover:bg-canvas border-transparent hover:border-sage-border'
+            }`}
+          >
+            <span className="material-symbols-outlined text-xl">shield_lock</span>
+          </button>
+        )}
         <button
           type="button"
           title="Pemberitahuan Sistem"

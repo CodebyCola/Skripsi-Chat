@@ -9,6 +9,24 @@ export const SERVER_CONSOLE_URL =
 
 export const TOKEN_KEY = 'skripsichat_token';
 
+/** Error dari server yang membawa status HTTP & kode resmi (Spesifikasi Bagian 13). */
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+// Pesan ramah untuk kode yang sering muncul di UI (hanya dipakai bila server tidak mengirim pesan)
+const FRIENDLY: Record<string, string> = {
+  ERR_FORBIDDEN: 'Anda tidak memiliki izin untuk aksi ini.',
+  ERR_NOT_PARTICIPANT: 'Anda bukan peserta percakapan ini.',
+};
+
 function authHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   const token = localStorage.getItem(TOKEN_KEY);
@@ -57,7 +75,12 @@ export async function apiRequest<T = any>(
       localStorage.removeItem('aegis_user');
       if (window.location.pathname !== '/') window.location.href = '/';
     }
-    throw new Error(data?.error || 'Terjadi kesalahan pada server kriptografi');
+    const fallback =
+      FRIENDLY[data?.code] ||
+      (res.status === 403
+        ? FRIENDLY.ERR_FORBIDDEN
+        : 'Terjadi kesalahan pada server kriptografi');
+    throw new ApiError(data?.error || fallback, res.status, data?.code);
   }
   return data as T;
 }

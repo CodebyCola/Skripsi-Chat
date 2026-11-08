@@ -4,6 +4,7 @@ import React from 'react';
 
 interface BlockchainControlsProps {
   loading: boolean;
+  showDemoTools: boolean;
   onVerify: () => void;
   onTamper: () => void;
   onRestore: () => void;
@@ -11,6 +12,7 @@ interface BlockchainControlsProps {
 
 export function BlockchainControls({
   loading,
+  showDemoTools,
   onVerify,
   onTamper,
   onRestore,
@@ -29,26 +31,30 @@ export function BlockchainControls({
         <span className="material-symbols-outlined text-base">fact_check</span>
         <span>Verifikasi Integritas Rantai</span>
       </button>
-      <button
-        type="button"
-        onClick={onTamper}
-        disabled={loading}
-        className={`${base} bg-security-danger hover:opacity-90 text-white`}
-      >
-        <span className="material-symbols-outlined text-base">warning</span>
-        <span>Simulasi Tamper Blok #1</span>
-      </button>
-      <button
-        type="button"
-        onClick={onRestore}
-        disabled={loading}
-        className={`${base} border border-sage-border bg-surface hover:bg-canvas text-text-dark`}
-      >
-        <span className="material-symbols-outlined text-base text-text-secondary">
-          build
-        </span>
-        <span>Pulihkan Integritas Rantai</span>
-      </button>
+      {showDemoTools && (
+        <>
+          <button
+            type="button"
+            onClick={onTamper}
+            disabled={loading}
+            className={`${base} bg-security-danger hover:opacity-90 text-white`}
+          >
+            <span className="material-symbols-outlined text-base">warning</span>
+            <span>Simulasi Tamper Blok #1</span>
+          </button>
+          <button
+            type="button"
+            onClick={onRestore}
+            disabled={loading}
+            className={`${base} border border-sage-border bg-surface hover:bg-canvas text-text-dark`}
+          >
+            <span className="material-symbols-outlined text-base text-text-secondary">
+              build
+            </span>
+            <span>Pulihkan Integritas Rantai</span>
+          </button>
+        </>
+      )}
     </div>
   );
 }

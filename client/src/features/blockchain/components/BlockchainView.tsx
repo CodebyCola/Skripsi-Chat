@@ -1,15 +1,19 @@
 'use client';
 
 import React from 'react';
-import { PageShell } from '@/features/dashboard';
+import { PageShell, useCurrentUser, normalizeRole } from '@/features/dashboard';
 import { useBlockchain } from '../hooks/useBlockchain';
 import { BlockCard } from './BlockCard';
 import { BlockchainControls } from './BlockchainControls';
 import { BlockchainStatusBanner } from './BlockchainStatusBanner';
 
 export function BlockchainView() {
+  const { user } = useCurrentUser();
   const { data, loading, errorMsg, loadChain, tamperBlock, restoreChain } =
     useBlockchain();
+
+  // FR-CHAIN-07: demo tamper hanya untuk admin (tampilan saja; penegakan tetap di server)
+  const isAdmin = normalizeRole(user?.role) === 'admin';
 
   return (
     <PageShell
@@ -18,6 +22,7 @@ export function BlockchainView() {
     >
       <BlockchainControls
         loading={loading}
+        showDemoTools={isAdmin}
         onVerify={loadChain}
         onTamper={() => tamperBlock(1)}
         onRestore={restoreChain}
