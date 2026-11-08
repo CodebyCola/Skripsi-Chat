@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ApiError } from '@/lib/api';
+import { useToast } from '@/components/ui';
 import {
   fetchBlockchain,
   restoreBlockchain,
@@ -8,32 +10,39 @@ import {
 } from '../api/blockchainApi';
 import { BlockchainData } from '../types/blockchain.types';
 
+// Ref: FR-CHAIN-04 (validasi rantai), FR-CHAIN-07 (tamper demo, admin)
 export function useBlockchain() {
+  const toast = useToast();
   const [data, setData] = useState<BlockchainData | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  async function loadChain() {
+  // Sesi habis ditampilkan oleh SessionExpiredBanner (event dari lib/api); di sini cukup diam.
+  const fail = useCallback((e: unknown, fallback: string) => {
+    if (e instanceof ApiError && e.code === 'ERR_SESSION_EXPIRED') return;
+    setErrorMsg(e instanceof Error ? e.message : fallback);
+  }, []);
+
+  const loadChain = useCallback(async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetchBlockchain();
-      setData(res);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal memuat rantai blockchain');
+      setData(await fetchBlockchain());
+    } catch (e) {
+      fail(e, 'Gagal memuat rantai blockchain');
     } finally {
       setLoading(false);
     }
-  }
+  }, [fail]);
 
   async function tamperBlock(index: number = 1) {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await tamperBlockchainBlock(index);
-      setData(res);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal mensimulasikan manipulasi blok');
+      setData(await tamperBlockchainBlock(index));
+      toast.show(`Blok #${index} dimanipulasi (simulasi)`, 'info');
+    } catch (e) {
+      fail(e, 'Gagal mensimulasikan manipulasi blok');
     } finally {
       setLoading(false);
     }
@@ -43,10 +52,10 @@ export function useBlockchain() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await restoreBlockchain();
-      setData(res);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal memulihkan integritas rantai');
+      setData(await restoreBlockchain());
+      toast.show('Integritas rantai dipulihkan', 'success');
+    } catch (e) {
+      fail(e, 'Gagal memulihkan integritas rantai');
     } finally {
       setLoading(false);
     }
@@ -54,12 +63,13 @@ export function useBlockchain() {
 
   useEffect(() => {
     loadChain();
-  }, []);
+  }, [loadChain]);
 
   return {
     data,
     loading,
     errorMsg,
+    clearError: () => setErrorMsg(''),
     loadChain,
     tamperBlock,
     restoreChain,
