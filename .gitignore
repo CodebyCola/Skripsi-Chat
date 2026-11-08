@@ -31,5 +31,6 @@ yarn-error.log*
 Thumbs.db
 *.swp
 .vscode/*
+.vscode
 !.vscode/settings.json
 !.vscode/extensions.json
