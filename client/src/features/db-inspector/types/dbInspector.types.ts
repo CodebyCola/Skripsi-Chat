@@ -5,6 +5,36 @@ export interface DbInspectorUserRecord {
   decryptedInApp: Record<string, any>;
 }
 
+export interface DbInspectorImportantRecord {
+  id: number;
+  convId: number;
+  messageId: number;
+  category: string;
+  markedBy: string;
+  markedAt: string;
+  rawInSqlite: {
+    contentEnc: string;
+    nonceHex: string;
+    authTagHex: string;
+  };
+  decryptedInApp: {
+    contentPlain: string;
+  };
+}
+
+export interface DbInspectorMessageRecord {
+  id: number;
+  title: string;
+  rawInSqlite: {
+    senderEncrypted: string;
+    superCiphertextPayload: string;
+  };
+  decryptedInApp: {
+    sender: string;
+    mode: string;
+  };
+}
+
 export interface DbInspectorData {
   usersTable: DbInspectorUserRecord[];
   encryptionSpec?: {
@@ -12,6 +42,6 @@ export interface DbInspectorData {
     passwordHashAlgorithm: string;
     sqliteFilePath: string;
   };
-  messagesTable?: any[];
-  importantMessagesTable?: any[];
+  messagesTable?: DbInspectorMessageRecord[];
+  importantMessagesTable?: DbInspectorImportantRecord[];
 }

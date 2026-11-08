@@ -41,6 +41,11 @@ const NAV_ITEMS: NavItemConfig[] = [
     icon: 'verified',
     badgeIcon: 'lock',
   },
+  {
+    label: 'DB Inspector',
+    href: '/dashboard/db-view',
+    icon: 'storage',
+  },
 ];
 
 export function DashboardSidebar() {
