@@ -1,26 +1,29 @@
 import { apiRequest } from '@/lib/api';
 import {
-  DecryptedFileResponse,
-  EncryptedFileRecord,
-  EncryptFilePayload,
+  DownloadedFile,
+  FileRecord,
+  ReviewStatus,
+  UploadFilePayload,
 } from '../types/files.types';
 
-export async function fetchFiles(): Promise<EncryptedFileRecord[]> {
-  return await apiRequest<EncryptedFileRecord[]>('/api/files');
+// Ref: FR-FILE-01..05 — identitas pengguna dibawa token sesi (header Authorization), bukan body.
+
+export function listFiles(convId: number): Promise<FileRecord[]> {
+  return apiRequest<FileRecord[]>('/api/files/list', 'POST', { convId });
 }
 
-export async function encryptFile(
-  payload: EncryptFilePayload
-): Promise<{ success: boolean; file: EncryptedFileRecord }> {
-  return await apiRequest('/api/files/encrypt', 'POST', payload);
+export function uploadFile(payload: UploadFilePayload): Promise<FileRecord> {
+  return apiRequest<FileRecord>('/api/files/upload', 'POST', payload);
 }
 
-export async function decryptFile(
-  id: number,
-  passphrase: string
-): Promise<DecryptedFileResponse> {
-  return await apiRequest<DecryptedFileResponse>('/api/files/decrypt', 'POST', {
-    id,
-    passphrase,
-  });
+export function downloadFile(fileId: number): Promise<DownloadedFile> {
+  return apiRequest<DownloadedFile>('/api/files/download', 'POST', { fileId });
+}
+
+export function reviewFile(
+  fileId: number,
+  status: ReviewStatus,
+  note: string
+): Promise<{ success: boolean; status: ReviewStatus }> {
+  return apiRequest('/api/files/review', 'POST', { fileId, status, note });
 }
