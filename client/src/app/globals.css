@@ -75,6 +75,9 @@
   --spacing-gutter-desktop: 1.5rem;
 
   /* Font Families */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --font-headline-xl: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-headline-lg: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-headline-xl-mobile: "Plus Jakarta Sans", system-ui, sans-serif;

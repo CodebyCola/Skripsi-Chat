@@ -1,3 +1,5 @@
+import type { AppRole } from '../constants/navigation';
+
 export function getInitials(name?: string): string {
   if (!name) return 'SC';
   const parts = name.trim().split(/\s+/);
@@ -5,10 +7,17 @@ export function getInitials(name?: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+/** Menerima nilai role dari server (MAHASISWA/DOSEN/ADMIN) maupun padanan Inggrisnya. */
+export function normalizeRole(role?: string): AppRole {
+  const r = (role || '').toUpperCase();
+  if (r.includes('ADMIN')) return 'admin';
+  if (r.includes('DOSEN') || r.includes('LECTURER')) return 'lecturer';
+  return 'student';
+}
+
 export function formatRole(role?: string): string {
-  if (!role) return 'Mahasiswa';
-  const r = role.toUpperCase();
-  if (r.includes('DOSEN')) return 'Dosen Pembimbing';
-  if (r.includes('ADMIN')) return 'Administrator';
+  const r = normalizeRole(role);
+  if (r === 'lecturer') return 'Dosen Pembimbing';
+  if (r === 'admin') return 'Administrator';
   return 'Mahasiswa';
 }
