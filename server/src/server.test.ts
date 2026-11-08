@@ -39,6 +39,7 @@ import {
 import { AdminService } from './services/admin.service.ts';
 import { KeysService } from './services/keys.service.ts';
 import { ChatService } from './services/chat.service.ts';
+import { VaultService } from './services/vault.service.ts';
 import { SessionService } from './services/session.service.ts';
 import { defaultDongleProvider } from './adapters/dongle.adapter.ts';
 import { extractToken } from './middlewares/auth.middleware.ts';
@@ -361,6 +362,82 @@ test('Chat sesi: login → kirim/baca terenkripsi dua arah, RBAC peserta, pengir
     assert.throws(() => SessionService.get(login.token), (e: any) => e.statusCode === 401);
   } finally {
     SessionService.clearAll();
+    db.prepare('DELETE FROM SecretMessage WHERE convId = ?').run(conv.convId);
+    db.prepare('DELETE FROM Conversation WHERE id = ?').run(conv.convId);
+    db.prepare('DELETE FROM User WHERE username IN (?, ?)').run(lecName, mhsName);
+  }
+});
+
+test('Vault sesi: hanya dosen peserta yang bisa menandai pesan; markedBy dari sesi (FR-VAULT-01, FR-AUTH-08)', () => {
+  handleToggleVirtualDongle(true);
+  const tag = Date.now();
+  const lecName = `lec_vault_${tag}`;
+  const mhsName = `mhs_vault_${tag}`;
+  const lecPass = 'DosenVault2026!';
+  const mhsPass = 'MhsVault2026!';
+  const face = (k: number) =>
+    Array.from({ length: 128 }, (_, i) => Number((Math.sin(i * k) * 0.2).toFixed(4)));
+
+  const lec = AdminService.provisionUser(
+    { username: lecName, fullName: 'Dosen Vault', role: 'DOSEN_PEMBIMBING', faceDescriptor: face(0.3) },
+    lecPass
+  );
+  const lecSecret = defaultDongleProvider.read_secret();
+  const mhs = AdminService.provisionUser(
+    { username: mhsName, fullName: 'Mahasiswa Vault', role: 'MAHASISWA', faceDescriptor: face(0.5) },
+    mhsPass
+  );
+  const conv = AdminService.assignSupervisor({ studentId: mhs.userId, lecturerId: lec.userId, topic: 'Uji Vault' });
+
+  try {
+    const mhsSession = SessionService.get((handleLoginUser({ username: mhsName, password: mhsPass }) as any).token);
+    const lecRow = db.prepare('SELECT * FROM User WHERE id = ?').get(lec.userId) as any;
+    const lecKek = KeysService.deriveKek(lecPass, lecSecret, Buffer.from(lecRow.kdfSalt, 'hex'));
+    const lecSession = SessionService.create({
+      userId: lec.userId, username: lecName, role: 'DOSEN_PEMBIMBING', dongleId: lec.dongleId,
+      privateKeyPem: KeysService.unlockPrivateKey(
+        { ciphertextHex: lecRow.privateKeyEnc, nonceHex: lecRow.privateKeyNonce, authTagHex: lecRow.privateKeyTag },
+        lecKek, lecName
+      ),
+    });
+
+    const sent = ChatService.sendMessageAs(mhsSession, conv.convId, 'Bab 4 sudah direvisi, Pak.');
+
+    // Mahasiswa → 403 ERR_FORBIDDEN
+    assert.throws(
+      () => VaultService.markImportantAs(mhsSession, { convId: conv.convId, messageId: sent.id, category: 'ACC' }),
+      (e: any) => e.code === 'ERR_FORBIDDEN' && e.statusCode === 403
+    );
+
+    // Dosen bukan peserta → 403 ERR_NOT_PARTICIPANT
+    const outsider = SessionService.create({
+      userId: 999998, username: 'dosen_luar', role: 'DOSEN_PEMBIMBING', dongleId: 'X', privateKeyPem: null,
+    });
+    assert.throws(
+      () => VaultService.markImportantAs(outsider, { convId: conv.convId, messageId: sent.id, category: 'ACC' }),
+      (e: any) => e.code === 'ERR_NOT_PARTICIPANT' && e.statusCode === 403
+    );
+
+    // Kategori tidak valid → 400
+    assert.throws(
+      () => VaultService.markImportantAs(lecSession, { convId: conv.convId, messageId: sent.id, category: 'HACK' }),
+      (e: any) => e.statusCode === 400
+    );
+
+    // Dosen peserta → sukses; isi diambil server dari chat, markedBy = pemilik sesi
+    const marked = VaultService.markImportantAs(lecSession, { convId: conv.convId, messageId: sent.id, category: 'REVISI' });
+    assert.equal(marked.markedBy, lecName);
+    assert.equal(marked.contentPlain, 'Bab 4 sudah direvisi, Pak.');
+    assert.equal(marked.category, 'REVISI');
+
+    // messageId tidak ada → 404
+    assert.throws(
+      () => VaultService.markImportantAs(lecSession, { convId: conv.convId, messageId: 987654321, category: 'ACC' }),
+      (e: any) => e.statusCode === 404
+    );
+  } finally {
+    SessionService.clearAll();
+    db.prepare('DELETE FROM ImportantMessage WHERE convId = ?').run(conv.convId);
     db.prepare('DELETE FROM SecretMessage WHERE convId = ?').run(conv.convId);
     db.prepare('DELETE FROM Conversation WHERE id = ?').run(conv.convId);
     db.prepare('DELETE FROM User WHERE username IN (?, ?)').run(lecName, mhsName);

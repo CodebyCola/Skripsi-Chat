@@ -17,6 +17,16 @@ export interface NavItem {
   isActive?: boolean;
 }
 
+export type ImportantCategory = 'ACC' | 'REVISI' | 'JADWAL_SIDANG' | 'LAINNYA';
+
+export interface ChatConversation {
+  id: number;
+  topic: string;
+  peerName: string;
+  peerUsername: string;
+}
+
+
 export interface ChatAttachment {
   name: string;
   size: string;
@@ -43,3 +53,4 @@ export interface DashboardModule {
   desc: string;
   badge?: string;
 }
+
