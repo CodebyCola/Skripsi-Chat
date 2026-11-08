@@ -2,53 +2,43 @@
 
 import React from 'react';
 
+// Ref: FR-FILE-01 — hanya PDF/DOCX; kunci enkripsi diturunkan server dari kunci percakapan
 interface FileUploadCardProps {
-  passphrase: string;
-  onPassphraseChange: (val: string) => void;
-  onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  loading: boolean;
+  disabled?: boolean;
+  uploading: boolean;
+  onSelect: (file: File) => void;
 }
 
-const labelCls = 'block text-[11px] font-medium text-text-secondary mb-1';
+export function FileUploadCard({ disabled, uploading, onSelect }: FileUploadCardProps) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // izinkan memilih berkas yang sama lagi
+    if (file) onSelect(file);
+  }
 
-export function FileUploadCard({
-  passphrase,
-  onPassphraseChange,
-  onFileUpload,
-  loading,
-}: FileUploadCardProps) {
   return (
-    <div className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs space-y-3.5">
+    <div className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs space-y-3">
       <div>
-        <label className={labelCls}>
-          Passphrase Enkripsi / Dekripsi ChaCha20-Poly1305
+        <label htmlFor="file-upload" className="block text-[11px] font-medium text-text-secondary mb-1">
+          Unggah naskah atau berkas bimbingan
         </label>
         <input
-          value={passphrase}
-          onChange={(e) => onPassphraseChange(e.target.value)}
-          placeholder="Kunci rahasia file..."
-          className="w-full rounded-lg border border-sage-border bg-canvas px-3 py-2 text-xs text-text-dark placeholder-text-muted focus:border-primary focus:bg-surface focus:outline-none transition"
-        />
-      </div>
-
-      <div>
-        <label className={labelCls}>
-          Pilih File Dokumen Bukti / Draf Skripsi untuk Dienkripsi
-        </label>
-        <input
+          id="file-upload"
           type="file"
-          onChange={onFileUpload}
-          disabled={loading}
+          accept=".pdf,.docx"
+          onChange={handleChange}
+          disabled={disabled || uploading}
           className="block w-full text-xs text-text-secondary file:mr-3 file:h-8 file:px-3 file:rounded-lg file:border file:border-sage-border file:bg-surface file:text-xs file:text-text-dark hover:file:bg-canvas disabled:opacity-40"
         />
       </div>
-
-      {loading && (
-        <p className="flex items-center gap-1.5 text-xs text-security-info">
-          <span className="material-symbols-outlined text-base">
-            hourglass_top
-          </span>
-          Sedang memproses enkripsi ChaCha20-Poly1305 di Server...
+      <p className="text-[11px] text-text-muted">
+        PDF atau DOCX, maksimal 25 MB. Berkas dienkripsi ChaCha20-Poly1305 sebelum disimpan; nama yang sama
+        otomatis menjadi versi berikutnya.
+      </p>
+      {uploading && (
+        <p role="status" className="flex items-center gap-1.5 text-xs text-security-info">
+          <span className="material-symbols-outlined text-base" aria-hidden="true">hourglass_top</span>
+          Mengenkripsi dan menyimpan berkas…
         </p>
       )}
     </div>

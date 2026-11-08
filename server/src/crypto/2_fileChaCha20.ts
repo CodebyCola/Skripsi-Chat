@@ -95,3 +95,53 @@ export function decryptFileChaCha20(
     decryptedSha256,
   };
 }
+
+// ============================================================================
+// VARIAN BERKUNCI `k_file` (sesi v2)
+// Ref: FR-FILE-02, FR-KEY-03 — kunci 32-byte hasil HKDF dari K_conv (bukan passphrase
+// dari klien). `aad` mengikat ciphertext ke percakapan sehingga file `.enc` yang
+// dipindah ke percakapan lain gagal dibuka. Format file tetap [Nonce 12][Tag 16][Ciphertext].
+// ============================================================================
+
+export function encryptFileChaCha20WithKey(
+  fileBuffer: Buffer,
+  key: Buffer,
+  aad: string
+): EncryptedFileResult {
+  const nonce = crypto.randomBytes(12);
+  const originalSha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+  const cipher = crypto.createCipheriv('chacha20-poly1305', key, nonce, { authTagLength: 16 });
+  cipher.setAAD(Buffer.from(aad, 'utf8'), { plaintextLength: fileBuffer.length });
+  const ciphertext = Buffer.concat([cipher.update(fileBuffer), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  return {
+    nonceHex: nonce.toString('hex'),
+    authTagHex: authTag.toString('hex'),
+    originalSha256,
+    encryptedBuffer: Buffer.concat([nonce, authTag, ciphertext]),
+  };
+}
+
+/** Melempar error bila kunci/AAD salah atau satu byte saja berubah (tag Poly1305 tidak valid). */
+export function decryptFileChaCha20WithKey(
+  packedEncryptedBuffer: Buffer,
+  key: Buffer,
+  aad: string
+): { decryptedBuffer: Buffer; decryptedSha256: string } {
+  if (packedEncryptedBuffer.length < 28) {
+    throw new Error('File terenkripsi terlalu pendek / rusak');
+  }
+  const nonce = packedEncryptedBuffer.subarray(0, 12);
+  const authTag = packedEncryptedBuffer.subarray(12, 28);
+  const ciphertext = packedEncryptedBuffer.subarray(28);
+
+  const decipher = crypto.createDecipheriv('chacha20-poly1305', key, nonce, { authTagLength: 16 });
+  decipher.setAAD(Buffer.from(aad, 'utf8'), { plaintextLength: ciphertext.length });
+  decipher.setAuthTag(authTag);
+
+  const decryptedBuffer = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  const decryptedSha256 = crypto.createHash('sha256').update(decryptedBuffer).digest('hex');
+  return { decryptedBuffer, decryptedSha256 };
+}
