@@ -33,6 +33,7 @@ export function useLoginForm(options?: {
         faceDescriptor: descriptor,
       });
       setSuccessInfo(res);
+      localStorage.setItem('skripsichat_token', res.token);
       localStorage.setItem('skripsichat_user', JSON.stringify(res.user));
       localStorage.setItem('aegis_user', JSON.stringify(res.user));
       setStep(3);

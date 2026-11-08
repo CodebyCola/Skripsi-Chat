@@ -31,6 +31,7 @@ export const MAX_TEXT_CHARS = 4000;
 export const LOCKOUT_MAX_ATTEMPTS = 5;
 export const LOCKOUT_MINUTES = 5;
 export const IDLE_LOCK_MINUTES = 15;
+export const SESSION_TTL_HOURS = 8; // Batas umur absolut sesi (FR-AUTH-07)
 export const CHAIN_DIFFICULTY = 4; // Jumlah '0' di awal hash SHA-256 blok
 export const DEMO_MODE = true;
 

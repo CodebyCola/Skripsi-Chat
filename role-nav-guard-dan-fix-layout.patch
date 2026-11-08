@@ -25,7 +25,7 @@ index 5c185a7..d3d0abe 100644
 -}
  
  export const metadata = {
-   title: 'SkripsiChat — Academic Advisory Shield',
+   title: 'SkripsiChat â€” Academic Advisory Shield',
 diff --git a/client/src/features/blockchain/components/BlockchainControls.tsx b/client/src/features/blockchain/components/BlockchainControls.tsx
 index 06e5094..d622e95 100644
 --- a/client/src/features/blockchain/components/BlockchainControls.tsx
@@ -174,7 +174,7 @@ index 587767d..a756fd7 100644
 -          {children}
 +          {loading || !allowed ? (
 +            <div className="flex-1 flex items-center justify-center text-xs text-text-secondary">
-+              Memuat sesi…
++              Memuat sesiâ€¦
 +            </div>
 +          ) : (
 +            children
@@ -463,4 +463,4 @@ index 8fc5bcc..35c007f 100644
 +  if (r === 'lecturer') return 'Dosen Pembimbing';
 +  if (r === 'admin') return 'Administrator';
    return 'Mahasiswa';
-}
+ }

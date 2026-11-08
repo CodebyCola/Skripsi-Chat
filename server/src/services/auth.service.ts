@@ -17,6 +17,9 @@ import {
   encryptDatabaseColumn,
   decryptDatabaseColumn,
 } from '../crypto/3_dbEncryption.ts';
+import { KeysService } from './keys.service.ts';
+import { SessionService } from './session.service.ts';
+import { defaultDongleProvider } from '../adapters/dongle.adapter.ts';
 
 let isVirtualUsbConnected = true;
 
@@ -31,6 +34,11 @@ export interface UserDbRow {
   facePhotoEncrypted?: string;
   faceUpdatedAt?: string;
   secretNoteEncrypted: string;
+  publicKey?: string;
+  privateKeyEnc?: string;
+  privateKeyNonce?: string;
+  privateKeyTag?: string;
+  kdfSalt?: string;
   createdAt: string;
 }
 
@@ -559,8 +567,40 @@ export class AuthService {
       assetData: `${userRow.username}|${expectedDongleId}|${new Date().toISOString()}`,
     });
 
+    // TAHAP 4 (FR-AUTH-05): Buka private key dengan KEK = KDF(password + dongle_secret).
+    // Akun legacy tanpa keypair tetap bisa login, tetapi tanpa akses chat terenkripsi.
+    let privateKeyPem: string | null = null;
+    if (userRow.privateKeyEnc) {
+      const kek = KeysService.deriveKek(
+        password,
+        defaultDongleProvider.read_secret(),
+        Buffer.from(userRow.kdfSalt || '', 'hex')
+      );
+      privateKeyPem = KeysService.unlockPrivateKey(
+        {
+          ciphertextHex: userRow.privateKeyEnc,
+          nonceHex: userRow.privateKeyNonce || '',
+          authTagHex: userRow.privateKeyTag || '',
+        },
+        kek,
+        userRow.username
+      );
+      kek.fill(0);
+    }
+
+    // Buat sesi: private key hanya hidup di memori server (FR-AUTH-03, 05)
+    const session = SessionService.create({
+      userId: userRow.id,
+      username: userRow.username,
+      role: userRow.role,
+      dongleId: expectedDongleId,
+      privateKeyPem,
+    });
+
     return {
       success: true,
+      token: session.token,
+      expiresAt: new Date(session.expiresAt).toISOString(),
       user: {
         id: userRow.id,
         username: userRow.username,
@@ -576,5 +616,11 @@ export class AuthService {
         biometricSimilarityPercent: bioResult.similarityPercent,
       },
     };
+  }
+
+  /** FR-AUTH-10: logout menghapus sesi + kunci dari memori */
+  static logout(token: string) {
+    SessionService.destroy(token);
+    return { success: true };
   }
 }

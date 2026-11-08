@@ -35,9 +35,10 @@ export function useConsultationChat(username?: string) {
   const [error, setError] = useState('');
   const lastId = useRef(0);
 
+  // Identitas pengguna diambil server dari token sesi (header Authorization)
   useEffect(() => {
     if (!username) return;
-    apiRequest<Conversation[]>(`/api/chat/conversations?userId=${encodeURIComponent(username)}`)
+    apiRequest<Conversation[]>('/api/chat/conversations')
       .then((list) => {
         if (!list[0]) return setError('Belum ada percakapan bimbingan.');
         setConvId(list[0].id);
@@ -77,7 +78,7 @@ export function useConsultationChat(username?: string) {
     if (!text || !convId || !username || isSending) return;
     setIsSending(true);
     try {
-      await apiRequest('/api/chat/send', 'POST', { convId, sender: username, plaintext: text });
+      await apiRequest('/api/chat/send', 'POST', { convId, plaintext: text });
       setInputText('');
       await poll();
     } catch (e: any) {

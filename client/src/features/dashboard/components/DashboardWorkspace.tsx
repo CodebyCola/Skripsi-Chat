@@ -9,8 +9,8 @@ import { ChatInputDock } from './ChatInputDock';
 
 export function DashboardWorkspace() {
   const { user } = useCurrentUser();
-  const { messages, inputText, setInputText, sendMessage, isSending } =
-    useConsultationChat(user?.fullName);
+  const { messages, inputText, setInputText, sendMessage, isSending, topic, error } =
+    useConsultationChat(user?.username);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-canvas">
@@ -21,7 +21,7 @@ export function DashboardWorkspace() {
             Sesi Diskusi Bimbingan
           </span>
           <h1 className="font-display font-semibold text-sm text-text-dark truncate">
-            Bab 4: Pengujian Super Enkripsi &amp; Hasil Evaluasi
+            {topic || 'Memuat sesi bimbingan...'}
           </h1>
         </div>
 
@@ -47,6 +47,8 @@ export function DashboardWorkspace() {
           </Link>
         </div>
       </div>
+
+      {error && <div className="px-6 py-2 text-xs text-red-700 bg-red-50">{error}</div>}
 
       {/* CHAT STREAM (SCROLLABLE MESSAGE LIST) */}
       <ChatStream messages={messages} />
