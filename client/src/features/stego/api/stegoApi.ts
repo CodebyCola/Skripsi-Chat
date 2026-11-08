@@ -1,19 +1,34 @@
 import { apiRequest } from '@/lib/api';
-import { EmbedMessagePayload, StegoImageRecord } from '../types/stego.types';
+import {
+  EmbedStegoPayload,
+  ExtractedStegoData,
+  StegoImageRecord,
+} from '../types/stego.types';
 
-export async function fetchStegoGallery(): Promise<StegoImageRecord[]> {
-  return await apiRequest<StegoImageRecord[]>('/api/stego');
+// Ref: FR-IMG-01 s.d. 04 — API Steganografi LSB berbasis sesi
+export async function fetchStegoGallery(convId: number): Promise<StegoImageRecord[]> {
+  return await apiRequest<StegoImageRecord[]>(`/api/stego?convId=${convId}`);
 }
 
 export async function embedSecretMessage(
-  payload: EmbedMessagePayload
-): Promise<{ success: boolean; image: StegoImageRecord }> {
-  return await apiRequest('/api/stego/embed', 'POST', payload);
+  payload: EmbedStegoPayload
+): Promise<StegoImageRecord> {
+  return await apiRequest<StegoImageRecord>('/api/stego/embed', 'POST', payload);
 }
 
-export async function extractSecretMessage(
-  id: number,
-  passkey: string
-): Promise<{ secretMessage: string }> {
-  return await apiRequest('/api/stego/extract', 'POST', { id, passkey });
+export async function extractSecretMessage(params: {
+  id?: number;
+  convId?: number;
+  stegoPngBase64?: string;
+}): Promise<ExtractedStegoData> {
+  return await apiRequest<ExtractedStegoData>('/api/stego/extract', 'POST', params);
+}
+
+export async function fetchStegoCapacity(
+  width: number,
+  height: number
+): Promise<{ width: number; height: number; maxCapacityBytes: number }> {
+  return await apiRequest<{ width: number; height: number; maxCapacityBytes: number }>(
+    `/api/stego/capacity?width=${width}&height=${height}`
+  );
 }

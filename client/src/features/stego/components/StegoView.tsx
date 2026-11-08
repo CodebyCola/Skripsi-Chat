@@ -1,73 +1,99 @@
 'use client';
 
 import React from 'react';
-import { PageShell } from '@/features/dashboard';
+import { PageShell, useCurrentUser } from '@/features/dashboard';
+import { EmptyState, ErrorBanner } from '@/components/ui';
 import { useStego } from '../hooks/useStego';
 import { StegoEmbedForm } from './StegoEmbedForm';
 import { StegoGalleryItem } from './StegoGalleryItem';
 
+// Ref: FR-IMG-01 s.d. 04, FR-AUTH-08
 export function StegoView() {
-  const {
-    title,
-    setTitle,
-    secretMessage,
-    setSecretMessage,
-    passkey,
-    setPasskey,
-    gallery,
-    extractedText,
-    errorMsg,
-    loading,
-    handleSelectCover,
-    handleEmbed,
-    handleExtract,
-  } = useStego();
+  const { user } = useCurrentUser();
+  const s = useStego(user?.username);
+
+  const picker =
+    s.conversations.length > 1 ? (
+      <select
+        aria-label="Pilih percakapan bimbingan"
+        value={s.convId ?? ''}
+        onChange={(e) => s.selectConversation(Number(e.target.value))}
+        className="h-8 max-w-56 rounded-lg border border-sage-border bg-surface px-2 text-xs text-text-dark focus:border-primary focus:outline-none"
+      >
+        {s.conversations.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.peerName} — {c.topic}
+          </option>
+        ))}
+      </select>
+    ) : undefined;
+
+  const active = s.conversations.find((c) => c.id === s.convId);
 
   return (
     <PageShell
-      title="Studio Steganografi Gambar PNG"
-      subtitle="LSB Embedding"
+      title={active ? `${active.peerName} — ${active.topic}` : 'Foto Dokumen'}
+      subtitle="Steganografi Citra PNG LSB & Metadata Terenkripsi"
+      actions={picker}
     >
-      {errorMsg && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
-          {errorMsg}
-        </div>
-      )}
+      <ErrorBanner message={s.error} onRetry={s.reload} onDismiss={s.clearError} />
 
-      <StegoEmbedForm
-        title={title}
-        onTitleChange={setTitle}
-        secretMessage={secretMessage}
-        onSecretMessageChange={setSecretMessage}
-        passkey={passkey}
-        onPasskeyChange={setPasskey}
-        onSelectCover={handleSelectCover}
-        loading={loading}
-        onSubmit={handleEmbed}
-      />
-
-      {extractedText && (
-        <div className="p-3.5 rounded-lg bg-sage-tint border border-sage-border text-primary text-xs flex items-start gap-2">
-          <span className="material-symbols-outlined text-lg shrink-0">
-            check_circle
-          </span>
-          <span>
-            Pesan Rahasia Terekstrak: <strong>{extractedText}</strong>
-          </span>
-        </div>
-      )}
-
-      <h2 className="text-xs font-semibold text-text-dark">
-        Galeri Citra Steganografi di Server ({gallery.length})
-      </h2>
-
-      {gallery.map((item) => (
-        <StegoGalleryItem
-          key={item.id}
-          item={item}
-          onExtract={handleExtract}
+      {!s.loading && s.conversations.length === 0 ? (
+        <EmptyState
+          icon="forum"
+          title="Belum ada percakapan bimbingan"
+          description="Foto dokumen steganografi disematkan di dalam percakapan bimbingan. Minta admin menetapkan pembimbing."
         />
-      ))}
+      ) : (
+        <>
+          <StegoEmbedForm
+            title={s.title}
+            onTitleChange={s.setTitle}
+            note={s.note}
+            onNoteChange={s.setNote}
+            coverPngBase64={s.coverPngBase64}
+            coverDimensions={s.coverDimensions}
+            maxCapacityBytes={s.maxCapacityBytes}
+            notePayloadBytes={s.notePayloadBytes}
+            isCapacityExceeded={s.isCapacityExceeded}
+            onSelectCover={s.handleSelectCover}
+            onResetCover={s.handleResetCover}
+            loading={s.uploading}
+            disabled={!s.convId}
+            onSubmit={s.handleEmbed}
+          />
+
+          <div className="pt-2">
+            <h2 className="text-xs font-semibold text-text-dark mb-3">
+              Daftar Foto Dokumen Steganografi ({s.gallery.length})
+            </h2>
+
+            {s.loading ? (
+              <p role="status" className="text-xs text-text-secondary">
+                Memuat galeri citra…
+              </p>
+            ) : s.gallery.length === 0 ? (
+              <EmptyState
+                icon="image"
+                title="Belum ada foto dokumen"
+                description="Unggah foto dokumen atau gunakan sampel cover untuk menyisipkan catatan rahasia LSB."
+              />
+            ) : (
+              <div className="space-y-3">
+                {s.gallery.map((item) => (
+                  <StegoGalleryItem
+                    key={item.id}
+                    item={item}
+                    extracted={s.extractedData[item.id]}
+                    isExtracting={s.extractingId === item.id}
+                    onExtract={s.handleExtract}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </PageShell>
   );
 }

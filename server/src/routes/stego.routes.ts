@@ -26,18 +26,42 @@ export function handleStegoRoutes(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   pathname: string,
-  method: string
+  method: string,
+  urlObj?: URL
 ): boolean {
+  const hasSession = !!(req.headers['x-session-id'] || req.headers.authorization);
+  const parsedUrl = urlObj || new URL(req.url || '', 'http://localhost');
+
   if (method === 'GET' && pathname === '/api/stego') {
-    StegoController.getImages(req, res);
+    if (hasSession && (parsedUrl.searchParams.has('convId') || !parsedUrl.searchParams.has('legacy'))) {
+      StegoController.listByConversation(req, res, parsedUrl);
+    } else {
+      StegoController.getImages(req, res);
+    }
+    return true;
+  }
+  if (method === 'POST' && pathname === '/api/stego/list') {
+    StegoController.listImagesPost(req, res);
     return true;
   }
   if (method === 'POST' && pathname === '/api/stego/embed') {
-    StegoController.embedImage(req, res);
+    if (hasSession) {
+      StegoController.embedForSession(req, res);
+    } else {
+      StegoController.embedImage(req, res);
+    }
     return true;
   }
   if (method === 'POST' && pathname === '/api/stego/extract') {
-    StegoController.extractImage(req, res);
+    if (hasSession) {
+      StegoController.extractForSession(req, res);
+    } else {
+      StegoController.extractImage(req, res);
+    }
+    return true;
+  }
+  if (method === 'GET' && pathname === '/api/stego/capacity') {
+    StegoController.getCapacity(req, res, parsedUrl);
     return true;
   }
   if (method === 'GET' && pathname === '/api/db-inspector') {

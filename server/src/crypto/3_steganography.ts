@@ -17,10 +17,16 @@
 
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
+import { AppError, ErrorCodes } from '../config/errors.ts';
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const STEGO_MAGIC_PREFIX = 'SKRIPSI_LSB_V1|';
 const LEGACY_STEGO_PREFIX = 'AEGIS_LSB_V1|';
+
+// Ref: FR-IMG-01 s.d. 04 & Spesifikasi Bagian 11.7 (Magic: SCST, Versi: 1, Panjang uint32BE)
+export const SCST_MAGIC = Buffer.from('SCST', 'ascii');
+export const SCST_VERSION = 1;
+export const SCST_HEADER_SIZE = 9; // 4 byte magic + 1 byte versi + 4 byte uint32 payload length
 
 export interface DecodedPngImage {
   width: number;
@@ -426,4 +432,168 @@ export function extractMessageFromPngLsb(
 
 function payloadLengthOf(str: string): number {
   return Buffer.from(str, 'utf8').length;
+}
+
+/**
+ * Ref: FR-IMG-04 — Menghitung kapasitas muat payload dalam byte:
+ * kapasitas_byte = floor(lebar * tinggi * 3 / 8) - 9
+ */
+export function getStegoCapacity(width: number, height: number): number {
+  return Math.max(0, Math.floor((width * height * 3) / 8) - SCST_HEADER_SIZE);
+}
+
+/**
+ * Ref: FR-IMG-01, 02, 04 — Menyisipkan payload byte ke dalam LSB PNG dengan format SCST v1
+ */
+export function embedPayloadInPngLsb(
+  coverPngBuffer: Buffer,
+  payloadBuffer: Buffer
+): StegoEmbedResult {
+  const { width, height, rgbaPixels } = decodePngBuffer(coverPngBuffer);
+  const originalPixels = Buffer.from(rgbaPixels);
+
+  const maxCapacityBytes = getStegoCapacity(width, height);
+  if (payloadBuffer.length > maxCapacityBytes) {
+    throw new AppError(
+      ErrorCodes.ERR_STEGO_CAPACITY,
+      `Payload steganografi (${payloadBuffer.length} byte) melebihi kapasitas citra (${maxCapacityBytes} byte untuk ${width}x${height} px)`,
+      400
+    );
+  }
+
+  // Header 9 byte: 'SCST' (4) + versi 1 (1) + length (4 BE)
+  const header = Buffer.alloc(SCST_HEADER_SIZE);
+  SCST_MAGIC.copy(header, 0);
+  header[4] = SCST_VERSION;
+  header.writeUInt32BE(payloadBuffer.length, 5);
+
+  const envelope = Buffer.concat([header, payloadBuffer]);
+
+  // Ekstrak bit envelope (MSB first)
+  const bits: number[] = [];
+  for (let i = 0; i < envelope.length; i++) {
+    const byteVal = envelope[i];
+    for (let b = 7; b >= 0; b--) {
+      bits.push((byteVal >> b) & 1);
+    }
+  }
+
+  // Tanamkan bit ke LSB kanal R, G, B
+  let bitIdx = 0;
+  const totalPixels = width * height;
+  for (let p = 0; p < totalPixels && bitIdx < bits.length; p++) {
+    const base = p * 4;
+    for (let c = 0; c < 3 && bitIdx < bits.length; c++) {
+      rgbaPixels[base + c] = (rgbaPixels[base + c] & 0xfe) | bits[bitIdx++];
+    }
+  }
+
+  // Hitung MSE dan PSNR
+  let sumSquaredError = 0;
+  for (let p = 0; p < totalPixels; p++) {
+    const base = p * 4;
+    for (let c = 0; c < 3; c++) {
+      const diff = originalPixels[base + c] - rgbaPixels[base + c];
+      sumSquaredError += diff * diff;
+    }
+  }
+
+  const mse = sumSquaredError / (totalPixels * 3);
+  const psnrDb =
+    mse === 0 ? 99.99 : Number((10 * Math.log10((255 * 255) / mse)).toFixed(2));
+
+  const stegoPngBuffer = encodePngBuffer(width, height, rgbaPixels);
+
+  return {
+    stegoPngBuffer,
+    width,
+    height,
+    maxCapacityBytes,
+    embeddedBitsCount: bits.length,
+    modifiedPixelsCount: Math.ceil(bits.length / 3),
+    mse: Number(mse.toFixed(6)),
+    psnrDb,
+  };
+}
+
+/**
+ * Ref: FR-IMG-03 — Mengekstrak payload byte dari LSB PNG berformat SCST v1
+ */
+export function extractPayloadFromPngLsb(stegoPngBuffer: Buffer): {
+  payloadBuffer: Buffer;
+  width: number;
+  height: number;
+} {
+  const { width, height, rgbaPixels } = decodePngBuffer(stegoPngBuffer);
+  const totalPixels = width * height;
+  const maxCapacity = getStegoCapacity(width, height);
+
+  const extractedBytes: number[] = [];
+  let currentByte = 0;
+  let bitCount = 0;
+  let payloadLength: number | null = null;
+  let targetTotalBytes = SCST_HEADER_SIZE;
+
+  for (let p = 0; p < totalPixels; p++) {
+    const base = p * 4;
+    for (let c = 0; c < 3; c++) {
+      const lsb = rgbaPixels[base + c] & 1;
+      currentByte = (currentByte << 1) | lsb;
+      bitCount++;
+
+      if (bitCount === 8) {
+        extractedBytes.push(currentByte);
+        currentByte = 0;
+        bitCount = 0;
+
+        // Baca dan periksa header 9-byte pertama
+        if (payloadLength === null && extractedBytes.length >= SCST_HEADER_SIZE) {
+          const magic = Buffer.from(extractedBytes.slice(0, 4));
+          if (!magic.equals(SCST_MAGIC)) {
+            throw new AppError(
+              ErrorCodes.ERR_STEGO_NO_PAYLOAD,
+              'Header steganografi SCST tidak ditemukan pada citra',
+              400
+            );
+          }
+          const version = extractedBytes[4];
+          if (version !== SCST_VERSION) {
+            throw new AppError(
+              ErrorCodes.ERR_STEGO_NO_PAYLOAD,
+              `Versi steganografi (${version}) tidak didukung`,
+              400
+            );
+          }
+          const headerBuf = Buffer.from(extractedBytes.slice(0, SCST_HEADER_SIZE));
+          const len = headerBuf.readUInt32BE(5);
+          if (len <= 0 || len > maxCapacity) {
+            throw new AppError(
+              ErrorCodes.ERR_STEGO_NO_PAYLOAD,
+              'Panjang payload steganografi SCST tidak valid',
+              400
+            );
+          }
+          payloadLength = len;
+          targetTotalBytes = SCST_HEADER_SIZE + len;
+        }
+
+        if (payloadLength !== null && extractedBytes.length >= targetTotalBytes) {
+          const payloadBuffer = Buffer.from(
+            extractedBytes.slice(SCST_HEADER_SIZE, targetTotalBytes)
+          );
+          return {
+            payloadBuffer,
+            width,
+            height,
+          };
+        }
+      }
+    }
+  }
+
+  throw new AppError(
+    ErrorCodes.ERR_STEGO_NO_PAYLOAD,
+    'Data payload steganografi SCST tidak lengkap atau terpotong',
+    400
+  );
 }

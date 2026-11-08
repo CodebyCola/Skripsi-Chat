@@ -44,7 +44,7 @@ export function routeRequest(
   if (handleFileRoutes(req, res, pathname, method)) return;
 
   // 4. Steganography & DB Inspector Routes
-  if (handleStegoRoutes(req, res, pathname, method)) return;
+  if (handleStegoRoutes(req, res, pathname, method, urlObj)) return;
 
   // 5. Blockchain Audit Ledger Routes
   if (handleBlockchainRoutes(req, res, pathname, method, urlObj)) return;
