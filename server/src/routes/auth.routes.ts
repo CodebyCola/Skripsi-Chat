@@ -82,6 +82,10 @@ export function handleAuthRoutes(
     AuthController.login(req, res);
     return true;
   }
+  if (method === 'POST' && pathname === '/api/auth/logout') {
+    AuthController.logout(req, res);
+    return true;
+  }
 
   return false;
 }

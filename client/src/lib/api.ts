@@ -7,6 +7,14 @@
 export const SERVER_CONSOLE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+export const TOKEN_KEY = 'skripsichat_token';
+
+function authHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function apiRequest<T = any>(
   endpoint: string,
   method: 'GET' | 'POST' = 'GET',
@@ -14,7 +22,7 @@ export async function apiRequest<T = any>(
 ): Promise<T> {
   const init: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     cache: 'no-store',
     body: body ? JSON.stringify(body) : undefined,
   };
@@ -42,6 +50,13 @@ export async function apiRequest<T = any>(
   }
 
   if (!res.ok) {
+    // Sesi habis / idle-lock / logout di server → bersihkan data lokal & kembali ke login
+    if (data?.code === 'ERR_SESSION_EXPIRED' && typeof window !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('skripsichat_user');
+      localStorage.removeItem('aegis_user');
+      if (window.location.pathname !== '/') window.location.href = '/';
+    }
     throw new Error(data?.error || 'Terjadi kesalahan pada server kriptografi');
   }
   return data as T;

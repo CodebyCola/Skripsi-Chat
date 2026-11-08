@@ -36,6 +36,15 @@ import {
   handleRestoreBlockchainIntegrity,
 } from './routes/blockchain.routes.ts';
 
+import { AdminService } from './services/admin.service.ts';
+import { KeysService } from './services/keys.service.ts';
+import { ChatService } from './services/chat.service.ts';
+import { SessionService } from './services/session.service.ts';
+import { defaultDongleProvider } from './adapters/dongle.adapter.ts';
+import { extractToken } from './middlewares/auth.middleware.ts';
+import { handleError } from './middlewares/error.middleware.ts';
+import { AppError, IDLE_LOCK_MINUTES } from './config/index.ts';
+
 initDatabase();
 
 test('Integrasi Pilar 1: Login ditolak saat USB Dongle dicabut & diterima saat dicolok', () => {
@@ -202,3 +211,158 @@ test('Integrasi Server <-> Client: Simpan Wajah di Server -> Cek Dongle & Verifi
   }
 });
 
+// ============================================================================
+// SESI & CHAT BERBASIS SESI (Ref: FR-AUTH-05, 07, 08, 10, FR-CHAT-02..04)
+// Ditaruh paling akhir: provisioning menimpa file dongle virtual bersama.
+// ============================================================================
+
+function stubRes() {
+  const out: { status?: number; body?: any } = {};
+  return {
+    out,
+    res: {
+      writeHead(status: number) { out.status = status; },
+      end(payload: string) { out.body = JSON.parse(payload); },
+    } as any,
+  };
+}
+
+test('Sesi: token wajib & AppError membawa status HTTP + kode (FR-AUTH-08)', () => {
+  assert.throws(() => extractToken({ headers: {} } as any), (e: any) =>
+    e instanceof AppError && e.statusCode === 401 && e.code === 'ERR_SESSION_EXPIRED');
+  assert.throws(() => extractToken({ headers: { authorization: 'Bearer abc' } } as any), /Belum login/);
+
+  const { out, res } = stubRes();
+  handleError(res, new AppError('ERR_NOT_PARTICIPANT', 'ditolak', 403));
+  assert.equal(out.status, 403);
+  assert.equal(out.body.code, 'ERR_NOT_PARTICIPANT');
+});
+
+test('Sesi: idle-lock, polling tidak memperpanjang sesi, logout menghapus kunci (FR-AUTH-07, 10)', () => {
+  const s = SessionService.create({
+    userId: 9001, username: 'sesi_uji', role: 'MAHASISWA', dongleId: 'D-1', privateKeyPem: 'PEM',
+  });
+  const subkeys = KeysService.deriveSubkeys(KeysService.createConversationKey());
+  s.subkeysByConv.set(1, subkeys);
+
+  // touch:false tidak mengubah lastActivity; default memperbaruinya
+  s.lastActivity = Date.now() - 60_000;
+  const before = s.lastActivity;
+  SessionService.get(s.token, { touch: false });
+  assert.equal(s.lastActivity, before);
+  SessionService.get(s.token);
+  assert.ok(s.lastActivity > before);
+
+  // Logout: sesi hilang, private key null, subkey di-nol-kan
+  SessionService.destroy(s.token);
+  assert.equal(s.privateKeyPem, null);
+  assert.ok(subkeys.k_text_aes.every((b) => b === 0));
+  assert.throws(() => SessionService.get(s.token), (e: any) => e.code === 'ERR_SESSION_EXPIRED');
+
+  // Idle melebihi IDLE_LOCK_MINUTES → ditolak & dihapus
+  const idle = SessionService.create({
+    userId: 9002, username: 'sesi_idle', role: 'MAHASISWA', dongleId: 'D-2', privateKeyPem: null,
+  });
+  idle.lastActivity = Date.now() - (IDLE_LOCK_MINUTES + 1) * 60_000;
+  assert.throws(() => SessionService.get(idle.token), (e: any) => e.statusCode === 401);
+  assert.throws(() => SessionService.get(idle.token), (e: any) => e.statusCode === 401);
+});
+
+test('Chat sesi: login → kirim/baca terenkripsi dua arah, RBAC peserta, pengirim tak bisa dipalsukan', () => {
+  handleToggleVirtualDongle(true);
+  const tag = Date.now();
+  const lecName = `lec_sesi_${tag}`;
+  const mhsName = `mhs_sesi_${tag}`;
+  const lecPass = 'DosenSesi2026!';
+  const mhsPass = 'MhsSesi2026!';
+  const face = (k: number) =>
+    Array.from({ length: 128 }, (_, i) => Number((Math.sin(i * k) * 0.2).toFixed(4)));
+
+  // Dosen diprovisi lebih dulu; catat secret dongle-nya sebelum file ditimpa mahasiswa
+  const lec = AdminService.provisionUser(
+    { username: lecName, fullName: 'Dosen Sesi', role: 'DOSEN_PEMBIMBING', faceDescriptor: face(0.3) },
+    lecPass
+  );
+  const lecSecret = defaultDongleProvider.read_secret();
+  const mhs = AdminService.provisionUser(
+    { username: mhsName, fullName: 'Mahasiswa Sesi', role: 'MAHASISWA', faceDescriptor: face(0.5) },
+    mhsPass
+  );
+  const conv = AdminService.assignSupervisor({
+    studentId: mhs.userId, lecturerId: lec.userId, topic: 'Uji Sesi',
+  });
+
+  try {
+    // Mahasiswa login nyata (dongle aktif = miliknya) → token + private key terbuka di memori
+    const login = handleLoginUser({ username: mhsName, password: mhsPass }) as any;
+    assert.match(login.token, /^[0-9a-f]{64}$/);
+    const mhsSession = SessionService.get(login.token);
+    assert.ok(mhsSession.privateKeyPem?.includes('PRIVATE KEY'));
+
+    // Dosen: buka private key dengan secret dongle miliknya, buat sesi
+    const lecRow = db.prepare('SELECT * FROM User WHERE id = ?').get(lec.userId) as any;
+    const lecKek = KeysService.deriveKek(lecPass, lecSecret, Buffer.from(lecRow.kdfSalt, 'hex'));
+    const lecSession = SessionService.create({
+      userId: lec.userId, username: lecName, role: 'DOSEN_PEMBIMBING', dongleId: lec.dongleId,
+      privateKeyPem: KeysService.unlockPrivateKey(
+        { ciphertextHex: lecRow.privateKeyEnc, nonceHex: lecRow.privateKeyNonce, authTagHex: lecRow.privateKeyTag },
+        lecKek, lecName
+      ),
+    });
+
+    // Daftar percakapan hanya milik sesi sendiri; detail tidak membocorkan wrapped key
+    assert.ok(ChatService.listConversationsFor(mhsSession).some((c: any) => c.id === conv.convId));
+    const detail = ChatService.getConversationFor(mhsSession, conv.convId) as any;
+    assert.equal(detail.wrappedKeyStudent, undefined);
+    assert.equal(detail.wrappedKeyLecturer, undefined);
+
+    // Mahasiswa kirim → dosen baca & dekripsi (subkey identik dari K_conv yang sama)
+    const text = 'Selamat pagi Pak, draf Bab 4 sudah saya unggah.';
+    const sent = ChatService.sendMessageAs(mhsSession, conv.convId, text);
+    assert.equal(sent.sender, mhsName);
+    const read = ChatService.fetchMessagesAs(lecSession, conv.convId).find((m) => m.id === sent.id);
+    assert.equal(read?.plaintext, text);
+    assert.equal(read?.sender, mhsName);
+    assert.equal(read?.status, 'DELIVERED');
+
+    // afterId: hanya pesan baru yang dikembalikan
+    assert.equal(ChatService.fetchMessagesAs(lecSession, conv.convId, sent.id).length, 0);
+
+    // Dosen membalas; pengirim selalu = pemilik sesi
+    const reply = ChatService.sendMessageAs(lecSession, conv.convId, 'Baik, saya periksa.');
+    assert.equal(reply.sender, lecName);
+
+    // RBAC: bukan peserta → ERR_NOT_PARTICIPANT (403); sama untuk percakapan yang tidak ada
+    const outsider = SessionService.create({
+      userId: 999999, username: 'orang_luar', role: 'MAHASISWA', dongleId: 'X', privateKeyPem: null,
+    });
+    for (const id of [conv.convId, 987654321]) {
+      assert.throws(() => ChatService.fetchMessagesAs(outsider, id), (e: any) =>
+        e.code === 'ERR_NOT_PARTICIPANT' && e.statusCode === 403);
+      assert.throws(() => ChatService.sendMessageAs(outsider, id, 'halo'), (e: any) =>
+        e.code === 'ERR_NOT_PARTICIPANT');
+    }
+
+    // Peserta tanpa keypair (akun legacy) → 409, bukan crash
+    const legacy = db.prepare('SELECT id FROM User WHERE username = ?').get('mahasiswa_01') as any;
+    const legacyConv = db.prepare(
+      `INSERT INTO Conversation (studentId, lecturerId, topic, wrappedKeyStudent, wrappedKeyLecturer, isActive, createdAt)
+       VALUES (?, ?, 'legacy', 'x', 'x', 1, ?)`
+    ).run(legacy.id, lec.userId, new Date().toISOString());
+    const legacySession = SessionService.create({
+      userId: legacy.id, username: 'mahasiswa_01', role: 'MAHASISWA', dongleId: 'L', privateKeyPem: null,
+    });
+    assert.throws(() => ChatService.fetchMessagesAs(legacySession, Number(legacyConv.lastInsertRowid)),
+      (e: any) => e.code === 'ERR_KEY_UNLOCK_FAILED' && e.statusCode === 409);
+    db.prepare('DELETE FROM Conversation WHERE id = ?').run(Number(legacyConv.lastInsertRowid));
+
+    // Logout → token tidak berlaku lagi
+    SessionService.destroy(login.token);
+    assert.throws(() => SessionService.get(login.token), (e: any) => e.statusCode === 401);
+  } finally {
+    SessionService.clearAll();
+    db.prepare('DELETE FROM SecretMessage WHERE convId = ?').run(conv.convId);
+    db.prepare('DELETE FROM Conversation WHERE id = ?').run(conv.convId);
+    db.prepare('DELETE FROM User WHERE username IN (?, ?)').run(lecName, mhsName);
+  }
+});

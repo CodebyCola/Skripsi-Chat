@@ -48,6 +48,8 @@ export interface SecurityVerificationSummary {
 
 export interface LoginResponseData {
   success: boolean;
+  token: string;
+  expiresAt: string;
   user: AuthenticatedUser;
   securityVerification: SecurityVerificationSummary;
 }

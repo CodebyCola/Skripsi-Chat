@@ -2,6 +2,7 @@ import type http from 'node:http';
 import { AuthService } from '../services/auth.service.ts';
 import { parseJsonBody } from '../middlewares/jsonBody.middleware.ts';
 import { sendJson, handleError } from '../middlewares/error.middleware.ts';
+import { extractToken } from '../middlewares/auth.middleware.ts';
 
 export class AuthController {
   static getDongleStatus(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -106,6 +107,15 @@ export class AuthController {
     try {
       const body = await parseJsonBody(req);
       const data = AuthService.loginUser(body);
+      sendJson(res, 200, data);
+    } catch (err) {
+      handleError(res, err);
+    }
+  }
+
+  static logout(req: http.IncomingMessage, res: http.ServerResponse) {
+    try {
+      const data = AuthService.logout(extractToken(req));
       sendJson(res, 200, data);
     } catch (err) {
       handleError(res, err);

@@ -1,6 +1,5 @@
 import './globals.css';
 import React from 'react';
-import { DashboardLayout } from '@/features/dashboard';
 
 export const metadata = {
   title: 'SkripsiChat — Academic Advisory Shield',

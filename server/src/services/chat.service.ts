@@ -13,6 +13,8 @@ import {
 import { encryptDatabaseColumn, decryptDatabaseColumn } from '../crypto/3_dbEncryption.ts';
 import { AuditService } from './audit.service.ts';
 import { AppError, ErrorCodes } from '../config/errors.ts';
+import { KeysService, type SubKeys } from './keys.service.ts';
+import type { Session } from './session.service.ts';
 
 export interface PlainChatMessage {
   id: number;
@@ -172,6 +174,86 @@ export class ChatService {
         status,
         createdAt: r.createdAt,
       };
+    });
+  }
+
+  // ==========================================================================
+  // LAPISAN BERBASIS SESI (FR-AUTH-08, FR-CHAT-04)
+  // Identitas & kunci berasal dari sesi server, bukan dari body request klien.
+  // ==========================================================================
+
+  /** FR-AUTH-08 / FR-CHAT-04: hanya mahasiswa atau dosen pada percakapan yang boleh akses */
+  static requireParticipant(session: Session, convId: number) {
+    const conv = db
+      .prepare('SELECT * FROM Conversation WHERE id = ? AND isActive = 1')
+      .get(convId) as any;
+    // Pesan sama untuk "tidak ada" & "bukan peserta" agar ID percakapan tidak bisa ditebak
+    if (!conv || (conv.studentId !== session.userId && conv.lecturerId !== session.userId)) {
+      throw new AppError(
+        ErrorCodes.ERR_NOT_PARTICIPANT,
+        'Anda bukan peserta percakapan ini',
+        403
+      );
+    }
+    return conv;
+  }
+
+  /** FR-KEY-02/03: unwrap K_conv dengan private key sesi, turunkan subkey, cache di memori sesi */
+  static subkeysFor(session: Session, conv: any): SubKeys {
+    const cached = session.subkeysByConv.get(conv.id);
+    if (cached) return cached;
+
+    if (!session.privateKeyPem) {
+      throw new AppError(
+        ErrorCodes.ERR_KEY_UNLOCK_FAILED,
+        'Akun ini belum memiliki keypair. Minta admin melakukan provisioning akun.',
+        409
+      );
+    }
+    const wrapped =
+      conv.studentId === session.userId ? conv.wrappedKeyStudent : conv.wrappedKeyLecturer;
+    const kConv = KeysService.unwrapKey(wrapped, session.privateKeyPem);
+    const subkeys = KeysService.deriveSubkeys(kConv);
+    kConv.fill(0);
+    session.subkeysByConv.set(conv.id, subkeys);
+    return subkeys;
+  }
+
+  static listConversationsFor(session: Session) {
+    return ChatService.listConversations(session.userId);
+  }
+
+  /** Detail percakapan TANPA kunci terbungkus */
+  static getConversationFor(session: Session, convId: number) {
+    const c = ChatService.requireParticipant(session, convId);
+    return {
+      id: c.id,
+      studentId: c.studentId,
+      lecturerId: c.lecturerId,
+      topic: c.topic,
+      createdAt: c.createdAt,
+    };
+  }
+
+  /** FR-CHAT-02: pengirim = pemilik sesi (tidak bisa dipalsukan klien) */
+  static sendMessageAs(session: Session, convId: number, plaintext: string) {
+    const conv = ChatService.requireParticipant(session, convId);
+    return ChatService.sendMessage({
+      convId,
+      sender: session.username,
+      plaintext,
+      subkeys: ChatService.subkeysFor(session, conv),
+    });
+  }
+
+  /** FR-CHAT-03/05: baca & dekripsi pesan baru (afterId) */
+  static fetchMessagesAs(session: Session, convId: number, afterId = 0, limit = 50) {
+    const conv = ChatService.requireParticipant(session, convId);
+    return ChatService.fetchMessages({
+      convId,
+      subkeys: ChatService.subkeysFor(session, conv),
+      afterId,
+      limit,
     });
   }
 }
