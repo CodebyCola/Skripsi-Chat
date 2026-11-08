@@ -1,5 +1,4 @@
 export * from './components/DbInspectorView';
-export * from './components/DbUserCard';
 export * from './hooks/useDbInspector';
 export * from './api/dbInspectorApi';
 export * from './types/dbInspector.types';

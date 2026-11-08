@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 
 import { VIRTUAL_USB_DIR, UPLOADS_DIR, CHAIN_DIFFICULTY } from '../config/index.ts';
 import { hashPasswordWithSalt } from '../crypto/1_passwordHash.ts';
-import { generateDongleKeyFileContent } from '../crypto/1_dongleKey.ts';
+import { generateDongleKeyFileContent, verifyDongleKeyFileContent, DONGLE_FILENAME } from '../crypto/1_dongleKey.ts';
 import { superEncryptText } from '../crypto/2_superEncryption.ts';
 import { encryptFileChaCha20 } from '../crypto/2_fileChaCha20.ts';
 import { encryptDatabaseColumn } from '../crypto/3_dbEncryption.ts';
@@ -113,7 +113,10 @@ export function seedInitialDemoData(db: DatabaseSync, forceFresh = false): void 
 
   const keypairDosen = KeysService.generateUserKeypair();
   const kdfSaltDosen = crypto.randomBytes(16);
-  const dongleSecretDosen = Buffer.from('DNG-DSN-2026-TOKEN-SECRET', 'utf8');
+  fs.writeFileSync(path.join(VIRTUAL_USB_DIR, DONGLE_FILENAME), dongleDosen.encryptedKeyFileContent, 'utf8');
+  try { fs.writeFileSync(path.join(VIRTUAL_USB_DIR, '.aegis_key'), dongleDosen.encryptedKeyFileContent, 'utf8'); } catch {}
+  const verifiedDosenDongle = verifyDongleKeyFileContent(dongleDosen.encryptedKeyFileContent);
+  const dongleSecretDosen = crypto.createHash('sha256').update(verifiedDosenDongle.payload!.dongleId + ':' + verifiedDosenDongle.payload!.signature).digest();
   const kekDosen = KeysService.deriveKek(defaultPassAcademic, dongleSecretDosen, kdfSaltDosen);
   const protectedKeyDosen = KeysService.protectPrivateKey(keypairDosen.privateKeyPem, kekDosen, 'dosen_pembimbing');
 
@@ -163,7 +166,8 @@ export function seedInitialDemoData(db: DatabaseSync, forceFresh = false): void 
 
   const keypairMhs = KeysService.generateUserKeypair();
   const kdfSaltMhs = crypto.randomBytes(16);
-  const dongleSecretMhs = Buffer.from('DNG-MHS-2026-TOKEN-SECRET', 'utf8');
+  const verifiedMhsDongle = verifyDongleKeyFileContent(dongleMhs.encryptedKeyFileContent);
+  const dongleSecretMhs = crypto.createHash('sha256').update(verifiedMhsDongle.payload!.dongleId + ':' + verifiedMhsDongle.payload!.signature).digest();
   const kekMhs = KeysService.deriveKek(defaultPassAcademic, dongleSecretMhs, kdfSaltMhs);
   const protectedKeyMhs = KeysService.protectPrivateKey(keypairMhs.privateKeyPem, kekMhs, 'mahasiswa_01');
 

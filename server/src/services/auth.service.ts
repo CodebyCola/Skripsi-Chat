@@ -100,11 +100,22 @@ export class AuthService {
     }
 
     const targetFile = path.join(VIRTUAL_USB_DIR, `${user}.skripsi_key`);
-    const generated = generateDongleKeyFileContent(user, expectedId);
-    fs.writeFileSync(targetFile, generated.encryptedKeyFileContent, 'utf8');
-    fs.writeFileSync(path.join(VIRTUAL_USB_DIR, DONGLE_FILENAME), generated.encryptedKeyFileContent, 'utf8');
+    let keyContent = '';
+    if (fs.existsSync(targetFile)) {
+      const existingRaw = fs.readFileSync(targetFile, 'utf8').trim();
+      const verified = verifyDongleKeyFileContent(existingRaw);
+      if (verified.valid && verified.payload?.username === user && verified.payload?.dongleId === expectedId) {
+        keyContent = existingRaw;
+      }
+    }
+    if (!keyContent) {
+      const generated = generateDongleKeyFileContent(user, expectedId);
+      keyContent = generated.encryptedKeyFileContent;
+      fs.writeFileSync(targetFile, keyContent, 'utf8');
+    }
+    fs.writeFileSync(path.join(VIRTUAL_USB_DIR, DONGLE_FILENAME), keyContent, 'utf8');
     try {
-      fs.writeFileSync(path.join(VIRTUAL_USB_DIR, '.aegis_key'), generated.encryptedKeyFileContent, 'utf8');
+      fs.writeFileSync(path.join(VIRTUAL_USB_DIR, '.aegis_key'), keyContent, 'utf8');
     } catch {
       // Abaikan
     }
@@ -140,11 +151,11 @@ export class AuthService {
     });
 
     return {
+      ...result,
       success: true,
       message: `File kunci kriptografi (.skripsi_key / .aegis_key) berhasil ditanamkan untuk '${username}' pada ${
         result.filePath
       }`,
-      ...result,
       status: this.getDongleStatus(),
     };
   }

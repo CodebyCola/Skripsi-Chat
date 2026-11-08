@@ -5,24 +5,34 @@
  * Kriteria Tugas Akhir #7:
  * Aset penting (Nilai, Sertifikat, Ijazah, ACC Sidang) diamankan dengan blockchain:
  * - SHA-256 Hash Linking & Canonical JSON
- * - Proof of Work (PoW) Difficulty = 4
+ * - Proof of Work (PoW)
  * - Tanda Tangan Digital RSA-PSS (SHA-256) oleh Dosen Penerbit
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { db } from '../database/connection.ts';
 import {
+  calculateBlockHash,
   canonicalJson,
   signData,
+   validateBlockchain,
   verifyDataSignature,
   type BlockRecord,
 } from '../crypto/4_blockchain.ts';
+import { verifyDongleKeyFileContent } from '../crypto/1_dongleKey.ts';
 import { KeysService } from './keys.service.ts';
 import { AuditService } from './audit.service.ts';
-import { CHAIN_DIFFICULTY } from '../config/index.ts';
-import { AppError, ErrorCodes } from '../config/errors.ts';
+import { CHAIN_DIFFICULTY, VIRTUAL_USB_DIR } from '../config/index.ts';
 
-export type AcademicAssetType = 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC' | 'DRAFT_SUBMISSION' | 'ACC_BAB';
+export type AcademicAssetType =
+  | 'GRADE'
+  | 'CERTIFICATE'
+  | 'DIPLOMA'
+  | 'THESIS_ACC'
+  | 'DRAFT_SUBMISSION'
+  | 'ACC_BAB';
 
 export interface IssueAssetParams {
   assetType: AcademicAssetType;
@@ -48,6 +58,65 @@ export interface VerificationResult {
 }
 
 export class ChainService {
+  /**
+   * Helper internal: Membuka kunci privat RSA dosen dari database jika tidak dikirim langsung
+   */
+  private static resolveIssuerPrivateKeyPem(issuerId: string): string | null {
+    try {
+      const user = db
+        .prepare(
+          'SELECT username, privateKeyEnc, privateKeyNonce, privateKeyTag, kdfSalt FROM User WHERE username = ?'
+        )
+        .get(issuerId) as
+        | {
+            username: string;
+            privateKeyEnc: string;
+            privateKeyNonce: string;
+            privateKeyTag: string;
+            kdfSalt: string;
+          }
+        | undefined;
+
+      if (!user || !user.privateKeyEnc || !user.privateKeyNonce || !user.privateKeyTag || !user.kdfSalt) {
+        return null;
+      }
+
+      const keyFilePath = path.join(VIRTUAL_USB_DIR, `${issuerId}.skripsi_key`);
+      if (!fs.existsSync(keyFilePath)) {
+        return null;
+      }
+
+      const rawKeyContent = fs.readFileSync(keyFilePath, 'utf8');
+      const verifiedDongle = verifyDongleKeyFileContent(rawKeyContent);
+      if (!verifiedDongle.valid || !verifiedDongle.payload) {
+        return null;
+      }
+
+      const dongleSecret = crypto
+        .createHash('sha256')
+        .update(`${verifiedDongle.payload.dongleId}:${verifiedDongle.payload.signature}`)
+        .digest();
+
+      const kek = KeysService.deriveKek(
+        'SkripsiChat2026!',
+        dongleSecret,
+        Buffer.from(user.kdfSalt, 'hex')
+      );
+
+      return KeysService.unlockPrivateKey(
+        {
+          ciphertextHex: user.privateKeyEnc,
+          nonceHex: user.privateKeyNonce,
+          authTagHex: user.privateKeyTag,
+        },
+        kek,
+        user.username
+      );
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * FR-CHAIN-02 & 03: Dosen menerbitkan aset akademik ke Blockchain dengan Tanda Tangan RSA-PSS & PoW
    */
@@ -88,17 +157,16 @@ export class ChainService {
 
     // 3. Tanda Tangani Payload dengan Private Key Dosen (RSA-PSS SHA-256)
     let signature = '';
-    if (params.issuerPrivateKeyPem) {
-      signature = signData(canonicalPayloadString, params.issuerPrivateKeyPem);
+    const resolvedPrivateKeyPem =
+      params.issuerPrivateKeyPem || this.resolveIssuerPrivateKeyPem(params.issuerId);
+
+    if (resolvedPrivateKeyPem) {
+      signature = signData(canonicalPayloadString, resolvedPrivateKeyPem);
     } else {
-      // Jika private key tidak diberikan langsung, ambil keypair dosen jika ada di DB
-      const user = db
-        .prepare('SELECT privateKeyEnc FROM User WHERE username = ?')
-        .get(params.issuerId) as any;
       signature = crypto.randomBytes(64).toString('base64');
     }
 
-    // 4. Mining Proof of Work (PoW) pada Block Baru
+    // 4. Mining Proof of Work (PoW) pada Block Baru menggunakan skema hash kanonik 4_blockchain.ts
     const lastBlock = db
       .prepare('SELECT * FROM BlockchainLedger ORDER BY "index" DESC LIMIT 1')
       .get() as BlockRecord | undefined;
@@ -111,19 +179,18 @@ export class ChainService {
     let blockHash = '';
 
     while (true) {
-      const rawString = [
-        nextIndex,
-        nowIso,
-        params.assetType,
-        params.issuerId,
-        params.title,
-        docHash,
+      blockHash = calculateBlockHash({
+        index: nextIndex,
+        timestamp: nowIso,
+        actionType: params.assetType,
+        actor: params.issuerId,
+        assetTitle: params.title,
+        assetDataHash: docHash,
         previousHash,
-        signature,
         nonce,
-      ].join('|');
+        signature,
+      });
 
-      blockHash = crypto.createHash('sha256').update(rawString, 'utf8').digest('hex');
       if (blockHash.startsWith(powPrefix)) {
         break;
       }
@@ -186,8 +253,11 @@ export class ChainService {
   /**
    * FR-CHAIN-05: Verifikasi Keaslian Dokumen Terhadap Rantai Bukti Blockchain
    */
-  static verifyDocument(documentBuffer: Buffer): VerificationResult {
-    const docHash = crypto.createHash('sha256').update(documentBuffer).digest('hex');
+  static verifyDocument(documentBuffer: Buffer, directDocHash?: string): VerificationResult {
+    const docHash =
+      directDocHash && directDocHash.trim().length > 0
+        ? directDocHash.trim()
+        : crypto.createHash('sha256').update(documentBuffer).digest('hex');
 
     // 1. Cari aset di database
     const asset = db
@@ -202,18 +272,22 @@ export class ChainService {
       };
     }
 
-    // 2. Validasi keutuhan rantai blok
+    // 2. Validasi keutuhan rantai blok secara menyeluruh (Hash + PreviousHash + PoW)
     const validation = this.validateChain();
     if (!validation.isValid) {
       return {
         status: 'CHAIN_COMPROMISED',
         message: `PERINGATAN: Integritas Blockchain terdeteksi RUSAK atau dimanipulasi pada Blok #${validation.corruptedIndex}!`,
         blockIndex: asset.blockIndex,
+        assetType: asset.assetType,
+        title: asset.title,
+        studentId: asset.studentId,
+        issuerId: asset.issuerId,
         docHash,
       };
     }
 
-    // 3. Verifikasi tanda tangan digital penerbit
+    // 3. Verifikasi tanda tangan digital penerbit (RSA-PSS)
     const block = db
       .prepare('SELECT * FROM BlockchainLedger WHERE "index" = ?')
       .get(asset.blockIndex) as any;
@@ -224,8 +298,7 @@ export class ChainService {
       .get(asset.issuerId) as any;
 
     if (issuer && issuer.publicKey && block?.signature) {
-      // Data kanonik yang diverifikasi
-      const dataPayload = {
+      const payloadWithMeta = {
         assetType: asset.assetType,
         title: asset.title,
         studentId: asset.studentId,
@@ -234,11 +307,18 @@ export class ChainService {
         issuedAt: asset.issuedAt,
         meta: {},
       };
-      signatureValid = verifyDataSignature(
-        canonicalJson(dataPayload),
-        block.signature,
-        issuer.publicKey
-      );
+      const payloadWithoutMeta = {
+        assetType: asset.assetType,
+        title: asset.title,
+        studentId: asset.studentId,
+        issuerId: asset.issuerId,
+        docHash: asset.docHash,
+        issuedAt: asset.issuedAt,
+      };
+
+      signatureValid =
+        verifyDataSignature(canonicalJson(payloadWithMeta), block.signature, issuer.publicKey) ||
+        verifyDataSignature(canonicalJson(payloadWithoutMeta), block.signature, issuer.publicKey);
     }
 
     return {
@@ -256,27 +336,20 @@ export class ChainService {
   }
 
   /**
-   * FR-CHAIN-04: Validasi Seluruh Rantai Blok (Hash, Proof of Work, Links)
+   * FR-CHAIN-04: Validasi Seluruh Rantai Blok (Recalculate SHA-256 Hash, Proof of Work, Links)
    */
   static validateChain(): { isValid: boolean; totalBlocks: number; corruptedIndex: number | null } {
     const blocks = db
       .prepare('SELECT * FROM BlockchainLedger ORDER BY "index" ASC')
-      .all() as any[];
+      .all() as unknown as BlockRecord[];
 
-    const powPrefix = '0'.repeat(CHAIN_DIFFICULTY);
-
-    for (let i = 0; i < blocks.length; i++) {
-      const b = blocks[i];
-      const prevExpected = i === 0 ? '0'.repeat(64) : blocks[i - 1].hash;
-
-      if (b.previousHash !== prevExpected) {
-        return { isValid: false, totalBlocks: blocks.length, corruptedIndex: b.index };
-      }
-
-      // Validasi Proof of Work
-      if (!b.hash.startsWith(powPrefix) && !b.hash.startsWith('00')) {
-        return { isValid: false, totalBlocks: blocks.length, corruptedIndex: b.index };
-      }
+    const validation = validateBlockchain(blocks);
+    if (!validation.isChainValid) {
+      return {
+        isValid: false,
+        totalBlocks: blocks.length,
+        corruptedIndex: validation.firstCorruptedIndex,
+      };
     }
 
     return { isValid: true, totalBlocks: blocks.length, corruptedIndex: null };

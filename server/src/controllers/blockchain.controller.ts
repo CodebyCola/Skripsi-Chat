@@ -68,7 +68,7 @@ export class BlockchainController {
           )
         : Buffer.from(body.documentContent || '', 'utf8');
 
-      const data = ChainService.verifyDocument(docBuffer);
+      const data = ChainService.verifyDocument(docBuffer, body.docHash);
       sendJson(res, 200, data);
     } catch (err) {
       handleError(res, err);
@@ -95,4 +95,3 @@ export class BlockchainController {
     }
   }
 }
-

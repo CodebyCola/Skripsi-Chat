@@ -34,12 +34,13 @@ export async function issueAcademicAsset(payload: {
 }
 
 export async function verifyAcademicDocument(
-  documentBase64: string
+  documentBase64: string,
+  docHash?: string
 ): Promise<VerificationResult> {
   return await apiRequest<VerificationResult>(
     '/api/blockchain/verify-document',
     'POST',
-    { documentBase64 }
+    { documentBase64, docHash }
   );
 }
 

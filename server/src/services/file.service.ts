@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { db, appendNewBlockchainRecord } from '../database/connection.ts';
 import { UPLOADS_DIR } from '../config/index.ts';
+import { ChainService } from './chain.service.ts';
 import {
   encryptFileChaCha20,
   decryptFileChaCha20,
@@ -112,13 +113,29 @@ export class FileService {
         new Date().toISOString()
       );
 
-    // Catat ke Blockchain Audit Ledger
+    // Catat ke Blockchain Audit Ledger (Transmisi Ciphertext ChaCha20)
     appendNewBlockchainRecord({
       actionType: 'CHACHA20_FILE_VAULT',
       actor: uploader,
       assetTitle: originalName,
       assetData: encrypted.encryptedBuffer,
     });
+
+    // Daftarkan Hash Berkas Asli (SHA-256) ke Buku Besar Aset Akademik Blockchain
+    // Sehingga pengunggah/dosen dapat langsung memverifikasi keaslian berkas fisiknya
+    try {
+      const studentUsername = uploader.includes(' ') ? uploader.split(' ')[0] : uploader;
+      ChainService.issueAsset({
+        assetType: 'DRAFT_SUBMISSION',
+        studentId: studentUsername,
+        issuerId: studentUsername,
+        documentBuffer: rawBuffer,
+        title: `Draf Naskah: ${originalName}`,
+        meta: { mimeType, originalName, sizeBytes: rawBuffer.length },
+      });
+    } catch {
+      // Abaikan jika sudah ada atau fallback
+    }
 
     return {
       id: Number(info.lastInsertRowid),

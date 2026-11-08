@@ -15,6 +15,15 @@ import {
 } from '../api/blockchainApi';
 import { AcademicAssetItem, VerificationResult } from '../types/blockchain.types';
 
+function utf8ToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 const PRESET_APPROVED_DOC = [
   '====================================================================',
   'DOKUMEN DRAF SKRIPSI TERENKRIPSI - SKRIPSICHAT ACADEMIC SHIELD',
@@ -110,9 +119,9 @@ export function BlockchainView() {
       // Jika user tidak memilih file khusus, buat payload kanonik otomatis
       const docPayload =
         documentFileBase64 ||
-        Buffer.from(
-          `DOKUMEN SURAT KEPUTUSAN ${assetType} - ${assetTitle} - MAHASISWA: ${studentId} - DOSEN: ${user?.username} - ${new Date().toISOString()}`
-        ).toString('base64');
+        utf8ToBase64(
+          `DOKUMEN SURAT KEPUTUSAN ${assetType} - ${assetTitle} - MAHASISWA: ${studentId} - DOSEN: ${user?.username || 'dosen_pembimbing'} - ${new Date().toISOString()}`
+        );
 
       const res = await issueAcademicAsset({
         assetType,
@@ -166,11 +175,27 @@ export function BlockchainView() {
     );
 
     try {
-      const b64 = Buffer.from(content, 'utf8').toString('base64');
+      const b64 = utf8ToBase64(content);
       const res = await verifyAcademicDocument(b64);
       setVerifyResult(res);
     } catch (err: any) {
       alert(err.message || 'Gagal menjalankan simulasi verifikasi');
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function handleQuickVerifyAsset(asset: AcademicAssetItem) {
+    setActiveTab('verify');
+    setVerifying(true);
+    setVerifyResult(null);
+    setVerifyFileName(`${asset.title} (Blok #${asset.blockIndex})`);
+
+    try {
+      const res = await verifyAcademicDocument('', asset.docHash);
+      setVerifyResult(res);
+    } catch (err: any) {
+      alert(err.message || 'Gagal memverifikasi aset akademik');
     } finally {
       setVerifying(false);
     }
@@ -486,10 +511,7 @@ export function BlockchainView() {
 
                         <button
                           type="button"
-                          onClick={() => {
-                            setActiveTab('verify');
-                            handleVerifyPresetSample(true);
-                          }}
+                          onClick={() => handleQuickVerifyAsset(a)}
                           className="h-8 px-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition"
                         >
                           <span className="material-symbols-outlined text-sm">fact_check</span>
@@ -666,6 +688,11 @@ export function BlockchainView() {
                     {verifyResult.status === 'NOT_FOUND' && (
                       <div className="text-amber-800 font-semibold mt-1">
                         ✖ Tidak ditemukan kecocokan nilai hash pada rantai blok. Berkas ini bukan berkas resmi atau isinya telah diubah.
+                      </div>
+                    )}
+                    {verifyResult.status === 'CHAIN_COMPROMISED' && (
+                      <div className="text-red-800 font-semibold mt-1">
+                        ✖ Verifikasi ditolak karena rantai buku besar Blockchain telah dimodifikasi secara tidak sah.
                       </div>
                     )}
                   </div>
