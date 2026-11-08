@@ -7,46 +7,20 @@ interface DbUserCardProps {
 
 export function DbUserCard({ user }: DbUserCardProps) {
   return (
-    <div
-      style={{
-        background: '#111827',
-        padding: 16,
-        borderRadius: 10,
-        border: '1px solid #334155',
-        marginBottom: 14,
-      }}
-    >
-      <h3>
+    <div className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs">
+      <h3 className="text-sm font-semibold text-text-dark">
         User #{user.id} (@{user.username})
       </h3>
-      <p style={{ color: '#f87171', fontSize: 13, marginTop: 8 }}>
+      <p className="mt-3 mb-1.5 text-xs font-medium text-security-danger">
         Raw di Tabel SQLite (Ciphertext AES-256-GCM &amp; Scrypt):
       </p>
-      <pre
-        style={{
-          background: '#070a12',
-          padding: 10,
-          borderRadius: 8,
-          overflowX: 'auto',
-          color: '#38bdf8',
-          fontSize: 12,
-        }}
-      >
+      <pre className="bg-canvas border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-text-dark overflow-x-auto">
         {JSON.stringify(user.rawInSqlite, null, 2)}
       </pre>
-      <p style={{ color: '#34d399', fontSize: 13, marginTop: 8 }}>
+      <p className="mt-3 mb-1.5 text-xs font-medium text-primary">
         Hasil Dekripsi di Aplikasi:
       </p>
-      <pre
-        style={{
-          background: '#070a12',
-          padding: 10,
-          borderRadius: 8,
-          overflowX: 'auto',
-          color: '#a7f3d0',
-          fontSize: 12,
-        }}
-      >
+      <pre className="bg-sage-tint border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-text-dark overflow-x-auto">
         {JSON.stringify(user.decryptedInApp, null, 2)}
       </pre>
     </div>

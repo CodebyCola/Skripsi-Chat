@@ -38,6 +38,15 @@ const NAV_ITEMS: NavItemConfig[] = [
     icon: 'verified',
     badgeIcon: 'lock',
   },
+  {
+    label: 'Foto Dokumen',
+    href: '/dashboard/stego',
+    icon: 'image',
+  },
+  // Halaman inspeksi database hanya untuk pengembangan
+  ...(process.env.NODE_ENV !== 'production'
+    ? [{ label: 'DB Inspector', href: '/dashboard/db-view', icon: 'storage' }]
+    : []),
 ];
 
 export function DashboardSidebar() {

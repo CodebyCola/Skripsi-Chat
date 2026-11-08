@@ -14,6 +14,10 @@ interface StegoEmbedFormProps {
   onSubmit: (e: React.FormEvent) => void;
 }
 
+const labelCls = 'block text-[11px] font-medium text-text-secondary mb-1';
+const inputCls =
+  'w-full rounded-lg border border-sage-border bg-canvas px-3 py-2 text-xs text-text-dark placeholder-text-muted focus:border-primary focus:bg-surface focus:outline-none transition';
+
 export function StegoEmbedForm({
   title,
   onTitleChange,
@@ -28,42 +32,63 @@ export function StegoEmbedForm({
   return (
     <form
       onSubmit={onSubmit}
-      style={{
-        background: '#111827',
-        padding: 20,
-        borderRadius: 12,
-        border: '1px solid #334155',
-        marginBottom: 24,
-      }}
+      className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs space-y-3.5"
     >
-      <label>Judul Bukti Gambar</label>
-      <input
-        value={title}
-        onChange={(e) => onTitleChange(e.target.value)}
-        required
-      />
+      <div>
+        <label className={labelCls}>Judul Bukti Gambar</label>
+        <input
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          required
+          className={inputCls}
+        />
+      </div>
 
-      <label>Pilih Gambar Cover (Kosongkan untuk Gambar PNG Otomatis)</label>
-      <input type="file" accept="image/*" onChange={onSelectCover} />
+      <div>
+        <label className={labelCls}>
+          Pilih Gambar Cover (Kosongkan untuk Gambar PNG Otomatis)
+        </label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={onSelectCover}
+          className="block w-full text-xs text-text-secondary file:mr-3 file:h-8 file:px-3 file:rounded-lg file:border file:border-sage-border file:bg-surface file:text-xs file:text-text-dark hover:file:bg-canvas"
+        />
+      </div>
 
-      <label>Pesan Rahasia yang Disisipkan ke Bit LSB PNG</label>
-      <textarea
-        value={secretMessage}
-        onChange={(e) => onSecretMessageChange(e.target.value)}
-        placeholder="Ketik pesan rahasia investigasi / catatan naskah..."
-        rows={3}
-        required
-      />
+      <div>
+        <label className={labelCls}>
+          Pesan Rahasia yang Disisipkan ke Bit LSB PNG
+        </label>
+        <textarea
+          value={secretMessage}
+          onChange={(e) => onSecretMessageChange(e.target.value)}
+          placeholder="Ketik pesan rahasia investigasi / catatan naskah..."
+          rows={3}
+          required
+          className={`${inputCls} resize-none leading-relaxed`}
+        />
+      </div>
 
-      <label>Passkey Steganografi (Kunci Ekstraksi)</label>
-      <input
-        value={passkey}
-        onChange={(e) => onPasskeyChange(e.target.value)}
-        required
-      />
+      <div>
+        <label className={labelCls}>Passkey Steganografi (Kunci Ekstraksi)</label>
+        <input
+          value={passkey}
+          onChange={(e) => onPasskeyChange(e.target.value)}
+          required
+          className={inputCls}
+        />
+      </div>
 
-      <button type="submit" disabled={loading}>
-        {loading ? 'Memproses Penyisipan LSB...' : '🧬 Tanamkan Pesan ke LSB PNG'}
+      <button
+        type="submit"
+        disabled={loading}
+        className="h-8 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <span className="material-symbols-outlined text-base">image</span>
+        <span>
+          {loading ? 'Memproses Penyisipan LSB...' : 'Tanamkan Pesan ke LSB PNG'}
+        </span>
       </button>
     </form>
   );

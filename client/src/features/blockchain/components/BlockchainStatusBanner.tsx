@@ -14,22 +14,23 @@ export function BlockchainStatusBanner({
 
   return (
     <div
-      style={{
-        padding: 14,
-        borderRadius: 8,
-        marginBottom: 16,
-        background: isValid
-          ? 'rgba(16,185,129,0.15)'
-          : 'rgba(239,68,68,0.18)',
-        border: `1px solid ${isValid ? '#10b981' : '#ef4444'}`,
-      }}
+      className={`p-3.5 rounded-lg border text-xs flex items-center gap-2 ${
+        isValid
+          ? 'bg-sage-tint border-sage-border text-primary'
+          : 'bg-red-50 border-red-200 text-security-danger'
+      }`}
     >
-      Status Rantai:{' '}
-      <strong>
-        {isValid
-          ? `✅ VALID (${validation.totalBlocks} Blok — Seluruh Hash SHA-256 Cocok)`
-          : `🚨 INVALID / RUSAK MULAI BLOK #${validation.firstCorruptedIndex}`}
-      </strong>
+      <span className="material-symbols-outlined text-lg shrink-0">
+        {isValid ? 'verified_user' : 'gpp_bad'}
+      </span>
+      <span>
+        Status Rantai:{' '}
+        <strong>
+          {isValid
+            ? `VALID (${validation.totalBlocks} Blok — Seluruh Hash SHA-256 Cocok)`
+            : `INVALID / RUSAK MULAI BLOK #${validation.firstCorruptedIndex}`}
+        </strong>
+      </span>
     </div>
   );
 }

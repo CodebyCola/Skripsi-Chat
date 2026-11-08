@@ -15,33 +15,39 @@ export function BlockchainControls({
   onTamper,
   onRestore,
 }: BlockchainControlsProps) {
+  const base =
+    'h-8 px-3.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed';
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 10,
-        marginBottom: 16,
-        flexWrap: 'wrap',
-      }}
-    >
-      <button type="button" onClick={onVerify} disabled={loading}>
-        🔍 Verifikasi Integritas Rantai
+    <div className="flex gap-2.5 flex-wrap">
+      <button
+        type="button"
+        onClick={onVerify}
+        disabled={loading}
+        className={`${base} bg-primary hover:bg-primary-hover text-white shadow-xs`}
+      >
+        <span className="material-symbols-outlined text-base">fact_check</span>
+        <span>Verifikasi Integritas Rantai</span>
       </button>
       <button
         type="button"
         onClick={onTamper}
         disabled={loading}
-        style={{ background: '#dc2626' }}
+        className={`${base} bg-security-danger hover:opacity-90 text-white`}
       >
-        ⚠️ Simulasi Tamper Blok #1
+        <span className="material-symbols-outlined text-base">warning</span>
+        <span>Simulasi Tamper Blok #1</span>
       </button>
       <button
         type="button"
         onClick={onRestore}
         disabled={loading}
-        style={{ background: '#059669' }}
+        className={`${base} border border-sage-border bg-surface hover:bg-canvas text-text-dark`}
       >
-        🛠️ Pulihkan Integritas Rantai
+        <span className="material-symbols-outlined text-base text-text-secondary">
+          build
+        </span>
+        <span>Pulihkan Integritas Rantai</span>
       </button>
     </div>
   );

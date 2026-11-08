@@ -11,34 +11,20 @@ export function BlockCard({ block, detail }: BlockCardProps) {
 
   return (
     <div
-      style={{
-        background: '#111827',
-        padding: 16,
-        borderRadius: 10,
-        border: '1px solid #334155',
-        borderLeft: `5px solid ${isValid ? '#10b981' : '#ef4444'}`,
-        marginBottom: 12,
-      }}
+      className={`bg-surface border border-sage-border border-l-4 ${
+        isValid ? 'border-l-security-valid' : 'border-l-security-danger'
+      } rounded-xl p-4 shadow-xs`}
     >
-      <strong>
+      <p className="text-xs font-semibold text-text-dark">
         Blok #{block.index} — [{block.actionType}] {block.assetTitle}
-      </strong>
+      </p>
       {detail?.errorReason && (
-        <div style={{ color: '#fca5a5', fontSize: 12.5, marginTop: 4 }}>
-          🚨 {detail.errorReason}
+        <div className="mt-1 flex items-center gap-1 text-[11px] text-security-danger">
+          <span className="material-symbols-outlined text-sm">gpp_bad</span>
+          <span>{detail.errorReason}</span>
         </div>
       )}
-      <pre
-        style={{
-          background: '#070a12',
-          padding: 10,
-          borderRadius: 8,
-          overflowX: 'auto',
-          color: '#38bdf8',
-          fontSize: 12,
-          marginTop: 8,
-        }}
-      >
+      <pre className="mt-2 bg-canvas border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-text-dark overflow-x-auto">
         {`previousHash : ${block.previousHash}\nassetHash    : ${block.assetDataHash}\nblockHash    : ${block.hash} (nonce: ${block.nonce})`}
       </pre>
     </div>

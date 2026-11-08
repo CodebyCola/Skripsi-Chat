@@ -17,77 +17,46 @@ export function MessageItemCard({
   onDelete,
 }: MessageItemCardProps) {
   return (
-    <div
-      style={{
-        background: '#111827',
-        padding: 16,
-        borderRadius: 10,
-        border: '1px solid #334155',
-        marginBottom: 12,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-        <strong>
+    <div className="bg-surface border border-sage-border rounded-xl p-4 shadow-xs">
+      <div className="flex justify-between flex-wrap gap-1.5">
+        <p className="text-xs font-semibold text-text-dark">
           #{message.id} — {message.title} ({message.mode})
-        </strong>
-        <span style={{ fontSize: 12.5, color: '#94a3b8' }}>
-          Pengirim: <strong style={{ color: '#e2e8f0' }}>{message.sender}</strong>
+        </p>
+        <span className="text-[11px] text-text-secondary">
+          Pengirim:{' '}
+          <strong className="text-text-dark">{message.sender}</strong>
         </span>
       </div>
 
-      <pre
-        style={{
-          background: '#070a12',
-          padding: 10,
-          borderRadius: 8,
-          overflowX: 'auto',
-          color: '#38bdf8',
-          margin: '8px 0',
-          fontSize: 12,
-        }}
-      >
+      <pre className="mt-2 bg-canvas border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-security-info overflow-x-auto">
         {message.superCiphertextPayload}
       </pre>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="mt-2.5 flex gap-2 items-center flex-wrap">
         <button
           type="button"
           onClick={() => onDecrypt(message.id)}
-          style={{ background: '#1e293b', border: '1px solid #334155', color: '#f1f5f9', cursor: 'pointer', padding: '6px 12px', borderRadius: 6 }}
+          className="h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
         >
-          Dekripsi Pesan
+          <span className="material-symbols-outlined text-base text-text-secondary">
+            lock_open
+          </span>
+          <span>Dekripsi Pesan</span>
         </button>
         {onDelete && (
           <button
             type="button"
             onClick={() => onDelete(message.id)}
-            style={{
-              background: 'transparent',
-              border: '1px solid #ef4444',
-              color: '#f87171',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: 6,
-              fontSize: 12,
-            }}
+            className="h-8 px-3 rounded-lg border border-red-200 bg-surface hover:bg-red-50 text-security-danger text-xs font-medium flex items-center gap-1.5 transition"
           >
-            Hapus Pesan
+            <span className="material-symbols-outlined text-base">delete</span>
+            <span>Hapus Pesan</span>
           </button>
         )}
       </div>
 
       {decryptedText && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: 10,
-            background: 'rgba(16,185,129,0.1)',
-            borderRadius: 8,
-            border: '1px solid #10b981',
-            color: '#34d399',
-            fontSize: 13,
-          }}
-        >
+        <div className="mt-2.5 p-2.5 rounded-lg bg-sage-tint border border-sage-border text-primary text-xs">
           Plaintext Hasil Dekripsi: <strong>{decryptedText}</strong>
         </div>
       )}

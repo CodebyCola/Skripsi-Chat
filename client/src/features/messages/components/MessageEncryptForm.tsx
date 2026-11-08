@@ -19,6 +19,10 @@ interface MessageEncryptFormProps {
   onSubmit: (e: React.FormEvent) => void;
 }
 
+const labelCls = 'block text-[11px] font-medium text-text-secondary mb-1';
+const inputCls =
+  'w-full rounded-lg border border-sage-border bg-canvas px-3 py-2 text-xs text-text-dark placeholder-text-muted focus:border-primary focus:bg-surface focus:outline-none transition';
+
 export function MessageEncryptForm({
   title,
   onTitleChange,
@@ -37,81 +41,99 @@ export function MessageEncryptForm({
   return (
     <form
       onSubmit={onSubmit}
-      style={{
-        background: '#111827',
-        padding: 20,
-        borderRadius: 12,
-        border: '1px solid #334155',
-        marginBottom: 24,
-      }}
+      className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs space-y-3.5"
     >
-      <label>Judul Catatan / Dokumen Bimbingan</label>
-      <input
-        value={title}
-        onChange={(e) => onTitleChange(e.target.value)}
-        required
-      />
+      <div>
+        <label className={labelCls}>Judul Catatan / Dokumen Bimbingan</label>
+        <input
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          required
+          className={inputCls}
+        />
+      </div>
 
-      <label>Identitas Pengirim (Dienkripsi AES-256-GCM di Database)</label>
-      <input
-        value={sender}
-        onChange={(e) => onSenderChange(e.target.value)}
-        required
-      />
+      <div>
+        <label className={labelCls}>
+          Identitas Pengirim (Dienkripsi AES-256-GCM di Database)
+        </label>
+        <input
+          value={sender}
+          onChange={(e) => onSenderChange(e.target.value)}
+          required
+          className={inputCls}
+        />
+      </div>
 
-      <label>Isi Pesan Rahasia (Plaintext)</label>
-      <textarea
-        value={plaintext}
-        onChange={(e) => onPlaintextChange(e.target.value)}
-        placeholder="Ketik catatan bimbingan atau draf naskah..."
-        rows={4}
-        required
-      />
+      <div>
+        <label className={labelCls}>Isi Pesan Rahasia (Plaintext)</label>
+        <textarea
+          value={plaintext}
+          onChange={(e) => onPlaintextChange(e.target.value)}
+          placeholder="Ketik catatan bimbingan atau draf naskah..."
+          rows={4}
+          required
+          className={`${inputCls} resize-none leading-relaxed`}
+        />
+      </div>
 
-      <label>Passphrase Super Enkripsi (Kunci Bersama)</label>
-      <input
-        value={passphrase}
-        onChange={(e) => onPassphraseChange(e.target.value)}
-        required
-      />
+      <div>
+        <label className={labelCls}>
+          Passphrase Super Enkripsi (Kunci Bersama)
+        </label>
+        <input
+          value={passphrase}
+          onChange={(e) => onPassphraseChange(e.target.value)}
+          required
+          className={inputCls}
+        />
+      </div>
 
-      <label>Mode Blok AES</label>
-      <select
-        value={mode}
-        onChange={(e) => onModeChange(e.target.value as 'CBC' | 'ECB')}
+      <div>
+        <label className={labelCls}>Mode Blok AES</label>
+        <select
+          value={mode}
+          onChange={(e) => onModeChange(e.target.value as 'CBC' | 'ECB')}
+          className={inputCls}
+        >
+          <option value="CBC">AES-256-CBC (Cipher Block Chaining)</option>
+          <option value="ECB">AES-256-ECB (Electronic Codebook)</option>
+        </select>
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="h-8 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        <option value="CBC">AES-256-CBC (Cipher Block Chaining)</option>
-        <option value="ECB">AES-256-ECB (Electronic Codebook)</option>
-      </select>
-
-      <button type="submit" disabled={loading}>
-        {loading
-          ? 'Memproses Super Enkripsi...'
-          : '🔒 Proses Super Enkripsi & Simpan ke Server'}
+        <span className="material-symbols-outlined text-base">lock</span>
+        <span>
+          {loading
+            ? 'Memproses Super Enkripsi...'
+            : 'Proses Super Enkripsi & Simpan ke Server'}
+        </span>
       </button>
 
       {lastStages && (
-        <div
-          style={{
-            marginTop: 16,
-            padding: 12,
-            background: '#070a12',
-            borderRadius: 8,
-            border: '1px solid #1e293b',
-            fontSize: 12,
-          }}
-        >
-          <strong style={{ color: '#34d399' }}>
+        <div className="p-3 bg-canvas border border-sage-border rounded-lg text-[11px] space-y-1.5">
+          <p className="font-semibold text-primary">
             Tahapan Super Enkripsi di Server:
-          </strong>
-          <div style={{ marginTop: 6, color: '#cbd5e1' }}>
-            1. Vigenère (Hex): <code>{lastStages.stage1VigenereHex}</code>
+          </p>
+          <div className="text-text-secondary break-all">
+            1. Vigenère (Hex):{' '}
+            <code className="font-mono text-text-dark">
+              {lastStages.stage1VigenereHex}
+            </code>
           </div>
-          <div style={{ marginTop: 4, color: '#cbd5e1' }}>
-            2. Vernam XOR (Hex): <code>{lastStages.stage2VernamHex}</code>
+          <div className="text-text-secondary break-all">
+            2. Vernam XOR (Hex):{' '}
+            <code className="font-mono text-text-dark">
+              {lastStages.stage2VernamHex}
+            </code>
           </div>
-          <div style={{ marginTop: 4, color: '#38bdf8' }}>
-            3. AES-256 Final Payload: <code>{lastStages.combinedPayload}</code>
+          <div className="text-security-info break-all">
+            3. AES-256 Final Payload:{' '}
+            <code className="font-mono">{lastStages.combinedPayload}</code>
           </div>
         </div>
       )}
