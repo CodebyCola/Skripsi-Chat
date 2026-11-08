@@ -10,7 +10,7 @@ import { ChatInputDock } from './ChatInputDock';
 export function DashboardWorkspace() {
   const { user } = useCurrentUser();
   const { messages, inputText, setInputText, sendMessage, isSending } =
-    useConsultationChat(user?.fullName || user?.username);
+    useConsultationChat(user?.fullName);
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-canvas">

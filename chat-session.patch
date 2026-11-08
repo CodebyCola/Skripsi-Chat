@@ -1,0 +1,936 @@
+diff --git a/client/src/features/dashboard/components/DashboardWorkspace.tsx b/client/src/features/dashboard/components/DashboardWorkspace.tsx
+index 3e515c1..bd17397 100644
+--- a/client/src/features/dashboard/components/DashboardWorkspace.tsx
++++ b/client/src/features/dashboard/components/DashboardWorkspace.tsx
+@@ -9,8 +9,8 @@ import { ChatInputDock } from './ChatInputDock';
+ 
+ export function DashboardWorkspace() {
+   const { user } = useCurrentUser();
+-  const { messages, inputText, setInputText, sendMessage, isSending } =
+-    useConsultationChat(user?.fullName || user?.username);
++  const { messages, inputText, setInputText, sendMessage, isSending, topic, error } =
++    useConsultationChat(user?.username);
+ 
+   return (
+     <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-canvas">
+@@ -21,7 +21,7 @@ export function DashboardWorkspace() {
+             Sesi Diskusi Bimbingan
+           </span>
+           <h1 className="font-display font-semibold text-sm text-text-dark truncate">
+-            Bab 4: Pengujian Super Enkripsi &amp; Hasil Evaluasi
++            {topic || 'Memuat sesi bimbingan...'}
+           </h1>
+         </div>
+ 
+@@ -48,6 +48,8 @@ export function DashboardWorkspace() {
+         </div>
+       </div>
+ 
++      {error && <div className="px-6 py-2 text-xs text-red-700 bg-red-50">{error}</div>}
++
+       {/* CHAT STREAM (SCROLLABLE MESSAGE LIST) */}
+       <ChatStream messages={messages} />
+ 
+diff --git a/client/src/features/dashboard/hooks/useConsultationChat.ts b/client/src/features/dashboard/hooks/useConsultationChat.ts
+index e2b5ce5..e19dcd1 100644
+--- a/client/src/features/dashboard/hooks/useConsultationChat.ts
++++ b/client/src/features/dashboard/hooks/useConsultationChat.ts
+@@ -1,89 +1,92 @@
+ 'use client';
+ 
+-import { useState } from 'react';
++import { useCallback, useEffect, useRef, useState } from 'react';
++import { apiRequest } from '@/lib/api';
+ import { ChatMessageItem } from '../types/dashboard.types';
+ 
+-const INITIAL_MESSAGES: ChatMessageItem[] = [
+-  {
+-    id: 1,
+-    sender: 'Rian Pratama',
+-    senderRole: 'MAHASISWA',
+-    timestamp: '09:32 WIB',
+-    isMe: true,
+-    content:
+-      'Selamat pagi, Pak Budi. Saya telah menyelesaikan pengujian performa algoritma gabungan ChaCha20-Poly1305 dan AES-GCM 256-bit pada draf Bab 4. Waktu latensi enkripsi untuk berkas di bawah 10 MB rata-rata 14.2 milidetik.\n\nBerikut saya lampirkan draf naskah Bab 4 revisi kedua beserta grafik perbandingan latensinya untuk ditinjau.',
+-    statusText: 'Terkirim & Terenkripsi End-to-End',
+-    statusIcon: 'done_all',
+-    attachment: {
+-      name: 'Draf_Bab4_Revisi2.docx',
+-      size: '2.4 MB',
+-      hash: 'SHA-256: 8f4a...9c2e',
+-      url: '/dashboard/files',
+-    },
+-  },
+-  {
+-    id: 2,
+-    sender: 'Dr. Ir. Budi Santoso, M.Kom',
+-    senderRole: 'DOSEN_PEMBIMBING',
+-    timestamp: '10:14 WIB',
+-    isMe: false,
+-    content:
+-      'Selamat pagi, Rian. Saya sudah memeriksa data tabel pengujian pada sub-bab 4.3 mengenai ketahanan terhadap serangan brute-force dan analisis avalanche effect. Hasil perhitungan sudah konsisten.\n\nCatatan revisi: Tambahkan sedikit penjelasan perbandingan konsumsi daya memori antara pengujian di server lokal Fasilkom dan pengujian pada klien berbasis ARM64. Jika bagian itu selesai, naskah Bab 4 siap saya berikan rekomendasi ACC.',
+-    signatureVerified: true,
+-    statusText: 'Tanda Tangan Kunci Dosen Valid',
+-    statusIcon: 'verified_user',
+-  },
+-  {
+-    id: 3,
+-    sender: 'Rian Pratama',
+-    senderRole: 'MAHASISWA',
+-    timestamp: '10:20 WIB',
+-    isMe: true,
+-    content:
+-      'Baik, Pak. Saya lengkapi bagian perbandingan konsumsi daya pada sub-bab 4.3.4 sore ini dan akan mengunggah versi perbaikannya.',
+-    statusText: 'Dibaca oleh Dosen',
+-    statusIcon: 'done_all',
+-  },
+-];
++interface Conversation { id: number; topic: string }
++interface ServerMessage {
++  id: number; sender: string; plaintext?: string;
++  status: 'DELIVERED' | 'CORRUPTED'; createdAt: string;
++}
++
++const POLL_MS = 3000;
++
++function toItem(m: ServerMessage, me: string): ChatMessageItem {
++  const corrupted = m.status === 'CORRUPTED';
++  return {
++    id: m.id,
++    sender: m.sender,
++    timestamp:
++      new Date(m.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
++    content: m.plaintext ?? '',
++    isMe: m.sender === me,
++    statusText: corrupted ? 'Pesan rusak / terdeteksi dimanipulasi' : 'Terkirim & Terenkripsi End-to-End',
++    statusIcon: corrupted ? 'gpp_bad' : 'done_all',
++  };
++}
+ 
+-export function useConsultationChat(currentUserName?: string) {
+-  const [messages, setMessages] = useState<ChatMessageItem[]>(INITIAL_MESSAGES);
++export function useConsultationChat(username?: string) {
++  const [convId, setConvId] = useState<number | null>(null);
++  const [topic, setTopic] = useState('');
++  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
+   const [inputText, setInputText] = useState('');
+   const [isSending, setIsSending] = useState(false);
++  const [error, setError] = useState('');
++  const lastId = useRef(0);
+ 
+-  function sendMessage() {
+-    const trimmed = inputText.trim();
+-    if (!trimmed) return;
++  // Identitas pengguna diambil server dari token sesi (header Authorization)
++  useEffect(() => {
++    if (!username) return;
++    apiRequest<Conversation[]>('/api/chat/conversations')
++      .then((list) => {
++        if (!list[0]) return setError('Belum ada percakapan bimbingan.');
++        setConvId(list[0].id);
++        setTopic(list[0].topic);
++      })
++      .catch((e) => setError(e.message));
++  }, [username]);
+ 
+-    setIsSending(true);
+-
+-    const now = new Date();
+-    const timeStr = now.toLocaleTimeString('id-ID', {
+-      hour: '2-digit',
+-      minute: '2-digit',
+-    }) + ' WIB';
++  const poll = useCallback(async () => {
++    if (!convId || !username) return;
++    try {
++      const fresh = await apiRequest<ServerMessage[]>('/api/chat/fetch', 'POST', {
++        convId,
++        afterId: lastId.current,
++      });
++      if (!fresh.length) return;
++      lastId.current = fresh[fresh.length - 1].id;
++      setMessages((prev) => {
++        const seen = new Set(prev.map((m) => m.id));
++        return [...prev, ...fresh.filter((m) => !seen.has(m.id)).map((m) => toItem(m, username))];
++      });
++      setError('');
++    } catch (e: any) {
++      setError(e.message);
++    }
++  }, [convId, username]);
+ 
+-    const newMsg: ChatMessageItem = {
+-      id: Date.now(),
+-      sender: currentUserName || 'Mahasiswa',
+-      senderRole: 'MAHASISWA',
+-      timestamp: timeStr,
+-      isMe: true,
+-      content: trimmed,
+-      statusText: 'Terkirim & Terenkripsi End-to-End',
+-      statusIcon: 'done_all',
+-    };
++  useEffect(() => {
++    if (!convId) return;
++    poll();
++    const t = setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
++    return () => clearInterval(t);
++  }, [convId, poll]);
+ 
+-    setMessages((prev) => [...prev, newMsg]);
+-    setInputText('');
+-    setIsSending(false);
++  async function sendMessage() {
++    const text = inputText.trim();
++    if (!text || !convId || !username || isSending) return;
++    setIsSending(true);
++    try {
++      await apiRequest('/api/chat/send', 'POST', { convId, plaintext: text });
++      setInputText('');
++      await poll();
++    } catch (e: any) {
++      setError(e.message);
++    } finally {
++      setIsSending(false);
++    }
+   }
+ 
+-  return {
+-    messages,
+-    inputText,
+-    setInputText,
+-    sendMessage,
+-    isSending,
+-  };
++  return { messages, inputText, setInputText, sendMessage, isSending, topic, error };
+ }
+diff --git a/client/src/features/dashboard/hooks/useCurrentUser.ts b/client/src/features/dashboard/hooks/useCurrentUser.ts
+index 8d29606..cbd77b5 100644
+--- a/client/src/features/dashboard/hooks/useCurrentUser.ts
++++ b/client/src/features/dashboard/hooks/useCurrentUser.ts
+@@ -1,5 +1,6 @@
+ "use client"
+ import { useEffect, useState } from 'react';
++import { apiRequest, TOKEN_KEY } from '@/lib/api';
+ import { AuthenticatedSessionUser } from '../types/dashboard.types';
+ 
+ export function useCurrentUser() {
+@@ -11,7 +12,7 @@ export function useCurrentUser() {
+       const raw =
+         localStorage.getItem('skripsichat_user') ||
+         localStorage.getItem('aegis_user');
+-      if (!raw) {
++      if (!raw || !localStorage.getItem(TOKEN_KEY)) {
+         window.location.href = '/';
+         return;
+       }
+@@ -23,7 +24,14 @@ export function useCurrentUser() {
+     }
+   }, []);
+ 
+-  function logout() {
++  async function logout() {
++    // FR-AUTH-10: minta server menghapus sesi + kunci dari memori (best-effort)
++    try {
++      await apiRequest('/api/auth/logout', 'POST', {});
++    } catch {
++      /* sesi mungkin sudah habis; lanjut bersihkan sisi klien */
++    }
++    localStorage.removeItem(TOKEN_KEY);
+     localStorage.removeItem('skripsichat_user');
+     localStorage.removeItem('aegis_user');
+     window.location.href = '/';
+diff --git a/client/src/features/login/hooks/useLoginForm.ts b/client/src/features/login/hooks/useLoginForm.ts
+index 3846369..4143e43 100644
+--- a/client/src/features/login/hooks/useLoginForm.ts
++++ b/client/src/features/login/hooks/useLoginForm.ts
+@@ -33,6 +33,7 @@ export function useLoginForm(options?: {
+         faceDescriptor: descriptor,
+       });
+       setSuccessInfo(res);
++      localStorage.setItem('skripsichat_token', res.token);
+       localStorage.setItem('skripsichat_user', JSON.stringify(res.user));
+       localStorage.setItem('aegis_user', JSON.stringify(res.user));
+       setStep(3);
+diff --git a/client/src/features/login/types/auth.types.ts b/client/src/features/login/types/auth.types.ts
+index 1d758ce..b99eca9 100644
+--- a/client/src/features/login/types/auth.types.ts
++++ b/client/src/features/login/types/auth.types.ts
+@@ -48,6 +48,8 @@ export interface SecurityVerificationSummary {
+ 
+ export interface LoginResponseData {
+   success: boolean;
++  token: string;
++  expiresAt: string;
+   user: AuthenticatedUser;
+   securityVerification: SecurityVerificationSummary;
+ }
+diff --git a/client/src/lib/api.ts b/client/src/lib/api.ts
+index b1768d8..8ae82ec 100644
+--- a/client/src/lib/api.ts
++++ b/client/src/lib/api.ts
+@@ -7,6 +7,14 @@
+ export const SERVER_CONSOLE_URL =
+   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+ 
++export const TOKEN_KEY = 'skripsichat_token';
++
++function authHeaders(): Record<string, string> {
++  if (typeof window === 'undefined') return {};
++  const token = localStorage.getItem(TOKEN_KEY);
++  return token ? { Authorization: `Bearer ${token}` } : {};
++}
++
+ export async function apiRequest<T = any>(
+   endpoint: string,
+   method: 'GET' | 'POST' = 'GET',
+@@ -14,7 +22,7 @@ export async function apiRequest<T = any>(
+ ): Promise<T> {
+   const init: RequestInit = {
+     method,
+-    headers: { 'Content-Type': 'application/json' },
++    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+     cache: 'no-store',
+     body: body ? JSON.stringify(body) : undefined,
+   };
+@@ -42,6 +50,13 @@ export async function apiRequest<T = any>(
+   }
+ 
+   if (!res.ok) {
++    // Sesi habis / idle-lock / logout di server → bersihkan data lokal & kembali ke login
++    if (data?.code === 'ERR_SESSION_EXPIRED' && typeof window !== 'undefined') {
++      localStorage.removeItem(TOKEN_KEY);
++      localStorage.removeItem('skripsichat_user');
++      localStorage.removeItem('aegis_user');
++      if (window.location.pathname !== '/') window.location.href = '/';
++    }
+     throw new Error(data?.error || 'Terjadi kesalahan pada server kriptografi');
+   }
+   return data as T;
+diff --git a/server/src/config/index.ts b/server/src/config/index.ts
+index 92850e9..4d30a7e 100644
+--- a/server/src/config/index.ts
++++ b/server/src/config/index.ts
+@@ -31,6 +31,7 @@ export const MAX_TEXT_CHARS = 4000;
+ export const LOCKOUT_MAX_ATTEMPTS = 5;
+ export const LOCKOUT_MINUTES = 5;
+ export const IDLE_LOCK_MINUTES = 15;
++export const SESSION_TTL_HOURS = 8; // Batas umur absolut sesi (FR-AUTH-07)
+ export const CHAIN_DIFFICULTY = 4; // Jumlah '0' di awal hash SHA-256 blok
+ export const DEMO_MODE = true;
+ 
+diff --git a/server/src/controllers/auth.controller.ts b/server/src/controllers/auth.controller.ts
+index 054cd03..a24d11c 100644
+--- a/server/src/controllers/auth.controller.ts
++++ b/server/src/controllers/auth.controller.ts
+@@ -2,6 +2,7 @@ import type http from 'node:http';
+ import { AuthService } from '../services/auth.service.ts';
+ import { parseJsonBody } from '../middlewares/jsonBody.middleware.ts';
+ import { sendJson, handleError } from '../middlewares/error.middleware.ts';
++import { extractToken } from '../middlewares/auth.middleware.ts';
+ 
+ export class AuthController {
+   static getDongleStatus(req: http.IncomingMessage, res: http.ServerResponse) {
+@@ -111,4 +112,13 @@ export class AuthController {
+       handleError(res, err);
+     }
+   }
++
++  static logout(req: http.IncomingMessage, res: http.ServerResponse) {
++    try {
++      const data = AuthService.logout(extractToken(req));
++      sendJson(res, 200, data);
++    } catch (err) {
++      handleError(res, err);
++    }
++  }
+ }
+diff --git a/server/src/controllers/chat.controller.ts b/server/src/controllers/chat.controller.ts
+index b5b5f76..62813cc 100644
+--- a/server/src/controllers/chat.controller.ts
++++ b/server/src/controllers/chat.controller.ts
+@@ -2,13 +2,14 @@ import type http from 'node:http';
+ import { ChatService } from '../services/chat.service.ts';
+ import { parseJsonBody } from '../middlewares/jsonBody.middleware.ts';
+ import { sendJson, handleError } from '../middlewares/error.middleware.ts';
++import { requireSession } from '../middlewares/auth.middleware.ts';
+ 
++// Ref: FR-CHAT-01..06, FR-AUTH-08 — semua endpoint wajib sesi (Bearer token).
+ export class ChatController {
+-  static listConversations(req: http.IncomingMessage, res: http.ServerResponse, urlObj: URL) {
++  static listConversations(req: http.IncomingMessage, res: http.ServerResponse, _urlObj: URL) {
+     try {
+-      const userId = urlObj.searchParams.get('userId') || 'dosen_pembimbing';
+-      const data = ChatService.listConversations(userId);
+-      sendJson(res, 200, data);
++      const session = requireSession(req);
++      sendJson(res, 200, ChatService.listConversationsFor(session));
+     } catch (err) {
+       handleError(res, err);
+     }
+@@ -16,9 +17,9 @@ export class ChatController {
+ 
+   static getConversation(req: http.IncomingMessage, res: http.ServerResponse, urlObj: URL) {
+     try {
+-      const convId = Number(urlObj.searchParams.get('convId') || 1);
+-      const data = ChatService.getConversation(convId);
+-      sendJson(res, 200, data);
++      const session = requireSession(req);
++      const convId = Number(urlObj.searchParams.get('convId'));
++      sendJson(res, 200, ChatService.getConversationFor(session, convId));
+     } catch (err) {
+       handleError(res, err);
+     }
+@@ -26,8 +27,13 @@ export class ChatController {
+ 
+   static async sendMessage(req: http.IncomingMessage, res: http.ServerResponse) {
+     try {
++      const session = requireSession(req);
+       const body = await parseJsonBody(req);
+-      const data = ChatService.sendMessage(body);
++      const data = ChatService.sendMessageAs(
++        session,
++        Number(body.convId),
++        String(body.plaintext ?? '')
++      );
+       sendJson(res, 201, data);
+     } catch (err) {
+       handleError(res, err);
+@@ -36,8 +42,15 @@ export class ChatController {
+ 
+   static async fetchMessages(req: http.IncomingMessage, res: http.ServerResponse) {
+     try {
++      // touch:false → polling tidak memperpanjang idle-timer (FR-AUTH-07)
++      const session = requireSession(req, { touch: false });
+       const body = await parseJsonBody(req);
+-      const data = ChatService.fetchMessages(body);
++      const data = ChatService.fetchMessagesAs(
++        session,
++        Number(body.convId),
++        Number(body.afterId) || 0,
++        Number(body.limit) || 50
++      );
+       sendJson(res, 200, data);
+     } catch (err) {
+       handleError(res, err);
+diff --git a/server/src/middlewares/auth.middleware.ts b/server/src/middlewares/auth.middleware.ts
+new file mode 100644
+index 0000000..2d88342
+--- /dev/null
++++ b/server/src/middlewares/auth.middleware.ts
+@@ -0,0 +1,18 @@
++import type http from 'node:http';
++import { AppError, ErrorCodes } from '../config/errors.ts';
++import { SessionService, type Session } from '../services/session.service.ts';
++
++/** Ambil token dari header `Authorization: Bearer <64 hex>` */
++export function extractToken(req: http.IncomingMessage): string {
++  const header = req.headers['authorization'] || '';
++  const match = /^Bearer\s+([0-9a-f]{64})$/i.exec(header);
++  if (!match) {
++    throw new AppError(ErrorCodes.ERR_SESSION_EXPIRED, 'Belum login. Silakan login terlebih dahulu.', 401);
++  }
++  return match[1].toLowerCase();
++}
++
++/** Ref: FR-AUTH-08 — wajib sesi valid; `touch:false` untuk polling */
++export function requireSession(req: http.IncomingMessage, opts: { touch?: boolean } = {}): Session {
++  return SessionService.get(extractToken(req), opts);
++}
+diff --git a/server/src/middlewares/error.middleware.ts b/server/src/middlewares/error.middleware.ts
+index da17382..75892c1 100644
+--- a/server/src/middlewares/error.middleware.ts
++++ b/server/src/middlewares/error.middleware.ts
+@@ -1,5 +1,5 @@
+ import type http from 'node:http';
+-import { CORS_HEADERS } from '../config/index.ts';
++import { CORS_HEADERS, AppError } from '../config/index.ts';
+ 
+ export function sendJson(res: http.ServerResponse, statusCode: number, data: unknown): void {
+   res.writeHead(statusCode, {
+@@ -11,5 +11,10 @@ export function sendJson(res: http.ServerResponse, statusCode: number, data: unk
+ 
+ export function handleError(res: http.ServerResponse, err: any, defaultStatusCode = 400): void {
+   const message = err?.message || 'Terjadi kesalahan pada internal server';
++  // AppError membawa status HTTP & kode error resmi (401/403/404, dst.)
++  if (err instanceof AppError) {
++    sendJson(res, err.statusCode, { error: message, code: err.code });
++    return;
++  }
+   sendJson(res, defaultStatusCode, { error: message });
+ }
+diff --git a/server/src/routes/auth.routes.ts b/server/src/routes/auth.routes.ts
+index 173d7ce..0b51af1 100644
+--- a/server/src/routes/auth.routes.ts
++++ b/server/src/routes/auth.routes.ts
+@@ -82,6 +82,10 @@ export function handleAuthRoutes(
+     AuthController.login(req, res);
+     return true;
+   }
++  if (method === 'POST' && pathname === '/api/auth/logout') {
++    AuthController.logout(req, res);
++    return true;
++  }
+ 
+   return false;
+ }
+diff --git a/server/src/server.test.ts b/server/src/server.test.ts
+index 68cad89..275dd01 100644
+--- a/server/src/server.test.ts
++++ b/server/src/server.test.ts
+@@ -36,6 +36,15 @@ import {
+   handleRestoreBlockchainIntegrity,
+ } from './routes/blockchain.routes.ts';
+ 
++import { AdminService } from './services/admin.service.ts';
++import { KeysService } from './services/keys.service.ts';
++import { ChatService } from './services/chat.service.ts';
++import { SessionService } from './services/session.service.ts';
++import { defaultDongleProvider } from './adapters/dongle.adapter.ts';
++import { extractToken } from './middlewares/auth.middleware.ts';
++import { handleError } from './middlewares/error.middleware.ts';
++import { AppError, IDLE_LOCK_MINUTES } from './config/index.ts';
++
+ initDatabase();
+ 
+ test('Integrasi Pilar 1: Login ditolak saat USB Dongle dicabut & diterima saat dicolok', () => {
+@@ -202,3 +211,158 @@ test('Integrasi Server <-> Client: Simpan Wajah di Server -> Cek Dongle & Verifi
+   }
+ });
+ 
++// ============================================================================
++// SESI & CHAT BERBASIS SESI (Ref: FR-AUTH-05, 07, 08, 10, FR-CHAT-02..04)
++// Ditaruh paling akhir: provisioning menimpa file dongle virtual bersama.
++// ============================================================================
++
++function stubRes() {
++  const out: { status?: number; body?: any } = {};
++  return {
++    out,
++    res: {
++      writeHead(status: number) { out.status = status; },
++      end(payload: string) { out.body = JSON.parse(payload); },
++    } as any,
++  };
++}
++
++test('Sesi: token wajib & AppError membawa status HTTP + kode (FR-AUTH-08)', () => {
++  assert.throws(() => extractToken({ headers: {} } as any), (e: any) =>
++    e instanceof AppError && e.statusCode === 401 && e.code === 'ERR_SESSION_EXPIRED');
++  assert.throws(() => extractToken({ headers: { authorization: 'Bearer abc' } } as any), /Belum login/);
++
++  const { out, res } = stubRes();
++  handleError(res, new AppError('ERR_NOT_PARTICIPANT', 'ditolak', 403));
++  assert.equal(out.status, 403);
++  assert.equal(out.body.code, 'ERR_NOT_PARTICIPANT');
++});
++
++test('Sesi: idle-lock, polling tidak memperpanjang sesi, logout menghapus kunci (FR-AUTH-07, 10)', () => {
++  const s = SessionService.create({
++    userId: 9001, username: 'sesi_uji', role: 'MAHASISWA', dongleId: 'D-1', privateKeyPem: 'PEM',
++  });
++  const subkeys = KeysService.deriveSubkeys(KeysService.createConversationKey());
++  s.subkeysByConv.set(1, subkeys);
++
++  // touch:false tidak mengubah lastActivity; default memperbaruinya
++  s.lastActivity = Date.now() - 60_000;
++  const before = s.lastActivity;
++  SessionService.get(s.token, { touch: false });
++  assert.equal(s.lastActivity, before);
++  SessionService.get(s.token);
++  assert.ok(s.lastActivity > before);
++
++  // Logout: sesi hilang, private key null, subkey di-nol-kan
++  SessionService.destroy(s.token);
++  assert.equal(s.privateKeyPem, null);
++  assert.ok(subkeys.k_text_aes.every((b) => b === 0));
++  assert.throws(() => SessionService.get(s.token), (e: any) => e.code === 'ERR_SESSION_EXPIRED');
++
++  // Idle melebihi IDLE_LOCK_MINUTES → ditolak & dihapus
++  const idle = SessionService.create({
++    userId: 9002, username: 'sesi_idle', role: 'MAHASISWA', dongleId: 'D-2', privateKeyPem: null,
++  });
++  idle.lastActivity = Date.now() - (IDLE_LOCK_MINUTES + 1) * 60_000;
++  assert.throws(() => SessionService.get(idle.token), (e: any) => e.statusCode === 401);
++  assert.throws(() => SessionService.get(idle.token), (e: any) => e.statusCode === 401);
++});
++
++test('Chat sesi: login → kirim/baca terenkripsi dua arah, RBAC peserta, pengirim tak bisa dipalsukan', () => {
++  handleToggleVirtualDongle(true);
++  const tag = Date.now();
++  const lecName = `lec_sesi_${tag}`;
++  const mhsName = `mhs_sesi_${tag}`;
++  const lecPass = 'DosenSesi2026!';
++  const mhsPass = 'MhsSesi2026!';
++  const face = (k: number) =>
++    Array.from({ length: 128 }, (_, i) => Number((Math.sin(i * k) * 0.2).toFixed(4)));
++
++  // Dosen diprovisi lebih dulu; catat secret dongle-nya sebelum file ditimpa mahasiswa
++  const lec = AdminService.provisionUser(
++    { username: lecName, fullName: 'Dosen Sesi', role: 'DOSEN_PEMBIMBING', faceDescriptor: face(0.3) },
++    lecPass
++  );
++  const lecSecret = defaultDongleProvider.read_secret();
++  const mhs = AdminService.provisionUser(
++    { username: mhsName, fullName: 'Mahasiswa Sesi', role: 'MAHASISWA', faceDescriptor: face(0.5) },
++    mhsPass
++  );
++  const conv = AdminService.assignSupervisor({
++    studentId: mhs.userId, lecturerId: lec.userId, topic: 'Uji Sesi',
++  });
++
++  try {
++    // Mahasiswa login nyata (dongle aktif = miliknya) → token + private key terbuka di memori
++    const login = handleLoginUser({ username: mhsName, password: mhsPass }) as any;
++    assert.match(login.token, /^[0-9a-f]{64}$/);
++    const mhsSession = SessionService.get(login.token);
++    assert.ok(mhsSession.privateKeyPem?.includes('PRIVATE KEY'));
++
++    // Dosen: buka private key dengan secret dongle miliknya, buat sesi
++    const lecRow = db.prepare('SELECT * FROM User WHERE id = ?').get(lec.userId) as any;
++    const lecKek = KeysService.deriveKek(lecPass, lecSecret, Buffer.from(lecRow.kdfSalt, 'hex'));
++    const lecSession = SessionService.create({
++      userId: lec.userId, username: lecName, role: 'DOSEN_PEMBIMBING', dongleId: lec.dongleId,
++      privateKeyPem: KeysService.unlockPrivateKey(
++        { ciphertextHex: lecRow.privateKeyEnc, nonceHex: lecRow.privateKeyNonce, authTagHex: lecRow.privateKeyTag },
++        lecKek, lecName
++      ),
++    });
++
++    // Daftar percakapan hanya milik sesi sendiri; detail tidak membocorkan wrapped key
++    assert.ok(ChatService.listConversationsFor(mhsSession).some((c: any) => c.id === conv.convId));
++    const detail = ChatService.getConversationFor(mhsSession, conv.convId) as any;
++    assert.equal(detail.wrappedKeyStudent, undefined);
++    assert.equal(detail.wrappedKeyLecturer, undefined);
++
++    // Mahasiswa kirim → dosen baca & dekripsi (subkey identik dari K_conv yang sama)
++    const text = 'Selamat pagi Pak, draf Bab 4 sudah saya unggah.';
++    const sent = ChatService.sendMessageAs(mhsSession, conv.convId, text);
++    assert.equal(sent.sender, mhsName);
++    const read = ChatService.fetchMessagesAs(lecSession, conv.convId).find((m) => m.id === sent.id);
++    assert.equal(read?.plaintext, text);
++    assert.equal(read?.sender, mhsName);
++    assert.equal(read?.status, 'DELIVERED');
++
++    // afterId: hanya pesan baru yang dikembalikan
++    assert.equal(ChatService.fetchMessagesAs(lecSession, conv.convId, sent.id).length, 0);
++
++    // Dosen membalas; pengirim selalu = pemilik sesi
++    const reply = ChatService.sendMessageAs(lecSession, conv.convId, 'Baik, saya periksa.');
++    assert.equal(reply.sender, lecName);
++
++    // RBAC: bukan peserta → ERR_NOT_PARTICIPANT (403); sama untuk percakapan yang tidak ada
++    const outsider = SessionService.create({
++      userId: 999999, username: 'orang_luar', role: 'MAHASISWA', dongleId: 'X', privateKeyPem: null,
++    });
++    for (const id of [conv.convId, 987654321]) {
++      assert.throws(() => ChatService.fetchMessagesAs(outsider, id), (e: any) =>
++        e.code === 'ERR_NOT_PARTICIPANT' && e.statusCode === 403);
++      assert.throws(() => ChatService.sendMessageAs(outsider, id, 'halo'), (e: any) =>
++        e.code === 'ERR_NOT_PARTICIPANT');
++    }
++
++    // Peserta tanpa keypair (akun legacy) → 409, bukan crash
++    const legacy = db.prepare('SELECT id FROM User WHERE username = ?').get('mahasiswa_01') as any;
++    const legacyConv = db.prepare(
++      `INSERT INTO Conversation (studentId, lecturerId, topic, wrappedKeyStudent, wrappedKeyLecturer, isActive, createdAt)
++       VALUES (?, ?, 'legacy', 'x', 'x', 1, ?)`
++    ).run(legacy.id, lec.userId, new Date().toISOString());
++    const legacySession = SessionService.create({
++      userId: legacy.id, username: 'mahasiswa_01', role: 'MAHASISWA', dongleId: 'L', privateKeyPem: null,
++    });
++    assert.throws(() => ChatService.fetchMessagesAs(legacySession, Number(legacyConv.lastInsertRowid)),
++      (e: any) => e.code === 'ERR_KEY_UNLOCK_FAILED' && e.statusCode === 409);
++    db.prepare('DELETE FROM Conversation WHERE id = ?').run(Number(legacyConv.lastInsertRowid));
++
++    // Logout → token tidak berlaku lagi
++    SessionService.destroy(login.token);
++    assert.throws(() => SessionService.get(login.token), (e: any) => e.statusCode === 401);
++  } finally {
++    SessionService.clearAll();
++    db.prepare('DELETE FROM SecretMessage WHERE convId = ?').run(conv.convId);
++    db.prepare('DELETE FROM Conversation WHERE id = ?').run(conv.convId);
++    db.prepare('DELETE FROM User WHERE username IN (?, ?)').run(lecName, mhsName);
++  }
++});
+diff --git a/server/src/services/auth.service.ts b/server/src/services/auth.service.ts
+index 85583bc..94e0b80 100644
+--- a/server/src/services/auth.service.ts
++++ b/server/src/services/auth.service.ts
+@@ -17,6 +17,9 @@ import {
+   encryptDatabaseColumn,
+   decryptDatabaseColumn,
+ } from '../crypto/3_dbEncryption.ts';
++import { KeysService } from './keys.service.ts';
++import { SessionService } from './session.service.ts';
++import { defaultDongleProvider } from '../adapters/dongle.adapter.ts';
+ 
+ let isVirtualUsbConnected = true;
+ 
+@@ -31,6 +34,11 @@ export interface UserDbRow {
+   facePhotoEncrypted?: string;
+   faceUpdatedAt?: string;
+   secretNoteEncrypted: string;
++  publicKey?: string;
++  privateKeyEnc?: string;
++  privateKeyNonce?: string;
++  privateKeyTag?: string;
++  kdfSalt?: string;
+   createdAt: string;
+ }
+ 
+@@ -559,8 +567,40 @@ export class AuthService {
+       assetData: `${userRow.username}|${expectedDongleId}|${new Date().toISOString()}`,
+     });
+ 
++    // TAHAP 4 (FR-AUTH-05): Buka private key dengan KEK = KDF(password + dongle_secret).
++    // Akun legacy tanpa keypair tetap bisa login, tetapi tanpa akses chat terenkripsi.
++    let privateKeyPem: string | null = null;
++    if (userRow.privateKeyEnc) {
++      const kek = KeysService.deriveKek(
++        password,
++        defaultDongleProvider.read_secret(),
++        Buffer.from(userRow.kdfSalt || '', 'hex')
++      );
++      privateKeyPem = KeysService.unlockPrivateKey(
++        {
++          ciphertextHex: userRow.privateKeyEnc,
++          nonceHex: userRow.privateKeyNonce || '',
++          authTagHex: userRow.privateKeyTag || '',
++        },
++        kek,
++        userRow.username
++      );
++      kek.fill(0);
++    }
++
++    // Buat sesi: private key hanya hidup di memori server (FR-AUTH-03, 05)
++    const session = SessionService.create({
++      userId: userRow.id,
++      username: userRow.username,
++      role: userRow.role,
++      dongleId: expectedDongleId,
++      privateKeyPem,
++    });
++
+     return {
+       success: true,
++      token: session.token,
++      expiresAt: new Date(session.expiresAt).toISOString(),
+       user: {
+         id: userRow.id,
+         username: userRow.username,
+@@ -577,4 +617,10 @@ export class AuthService {
+       },
+     };
+   }
++
++  /** FR-AUTH-10: logout menghapus sesi + kunci dari memori */
++  static logout(token: string) {
++    SessionService.destroy(token);
++    return { success: true };
++  }
+ }
+diff --git a/server/src/services/chat.service.ts b/server/src/services/chat.service.ts
+index c48c9a2..93d30f9 100644
+--- a/server/src/services/chat.service.ts
++++ b/server/src/services/chat.service.ts
+@@ -13,6 +13,8 @@ import {
+ import { encryptDatabaseColumn, decryptDatabaseColumn } from '../crypto/3_dbEncryption.ts';
+ import { AuditService } from './audit.service.ts';
+ import { AppError, ErrorCodes } from '../config/errors.ts';
++import { KeysService, type SubKeys } from './keys.service.ts';
++import type { Session } from './session.service.ts';
+ 
+ export interface PlainChatMessage {
+   id: number;
+@@ -174,4 +176,84 @@ export class ChatService {
+       };
+     });
+   }
++
++  // ==========================================================================
++  // LAPISAN BERBASIS SESI (FR-AUTH-08, FR-CHAT-04)
++  // Identitas & kunci berasal dari sesi server, bukan dari body request klien.
++  // ==========================================================================
++
++  /** FR-AUTH-08 / FR-CHAT-04: hanya mahasiswa atau dosen pada percakapan yang boleh akses */
++  static requireParticipant(session: Session, convId: number) {
++    const conv = db
++      .prepare('SELECT * FROM Conversation WHERE id = ? AND isActive = 1')
++      .get(convId) as any;
++    // Pesan sama untuk "tidak ada" & "bukan peserta" agar ID percakapan tidak bisa ditebak
++    if (!conv || (conv.studentId !== session.userId && conv.lecturerId !== session.userId)) {
++      throw new AppError(
++        ErrorCodes.ERR_NOT_PARTICIPANT,
++        'Anda bukan peserta percakapan ini',
++        403
++      );
++    }
++    return conv;
++  }
++
++  /** FR-KEY-02/03: unwrap K_conv dengan private key sesi, turunkan subkey, cache di memori sesi */
++  static subkeysFor(session: Session, conv: any): SubKeys {
++    const cached = session.subkeysByConv.get(conv.id);
++    if (cached) return cached;
++
++    if (!session.privateKeyPem) {
++      throw new AppError(
++        ErrorCodes.ERR_KEY_UNLOCK_FAILED,
++        'Akun ini belum memiliki keypair. Minta admin melakukan provisioning akun.',
++        409
++      );
++    }
++    const wrapped =
++      conv.studentId === session.userId ? conv.wrappedKeyStudent : conv.wrappedKeyLecturer;
++    const kConv = KeysService.unwrapKey(wrapped, session.privateKeyPem);
++    const subkeys = KeysService.deriveSubkeys(kConv);
++    kConv.fill(0);
++    session.subkeysByConv.set(conv.id, subkeys);
++    return subkeys;
++  }
++
++  static listConversationsFor(session: Session) {
++    return ChatService.listConversations(session.userId);
++  }
++
++  /** Detail percakapan TANPA kunci terbungkus */
++  static getConversationFor(session: Session, convId: number) {
++    const c = ChatService.requireParticipant(session, convId);
++    return {
++      id: c.id,
++      studentId: c.studentId,
++      lecturerId: c.lecturerId,
++      topic: c.topic,
++      createdAt: c.createdAt,
++    };
++  }
++
++  /** FR-CHAT-02: pengirim = pemilik sesi (tidak bisa dipalsukan klien) */
++  static sendMessageAs(session: Session, convId: number, plaintext: string) {
++    const conv = ChatService.requireParticipant(session, convId);
++    return ChatService.sendMessage({
++      convId,
++      sender: session.username,
++      plaintext,
++      subkeys: ChatService.subkeysFor(session, conv),
++    });
++  }
++
++  /** FR-CHAT-03/05: baca & dekripsi pesan baru (afterId) */
++  static fetchMessagesAs(session: Session, convId: number, afterId = 0, limit = 50) {
++    const conv = ChatService.requireParticipant(session, convId);
++    return ChatService.fetchMessages({
++      convId,
++      subkeys: ChatService.subkeysFor(session, conv),
++      afterId,
++      limit,
++    });
++  }
+ }
+diff --git a/server/src/services/session.service.ts b/server/src/services/session.service.ts
+new file mode 100644
+index 0000000..f5019cc
+--- /dev/null
++++ b/server/src/services/session.service.ts
+@@ -0,0 +1,100 @@
++/**
++ * ============================================================================
++ * MODUL SESSION: SESI LOGIN, TOKEN & KUNCI DI MEMORI (FR-AUTH-05, 07, 10)
++ * ============================================================================
++ * - Token acak 32 byte (hex 64 karakter), dikirim klien via `Authorization: Bearer`.
++ * - Private key user & subkey percakapan HANYA disimpan di memori proses ini.
++ * - Sesi berakhir karena: logout, idle > IDLE_LOCK_MINUTES, atau lewat SESSION_TTL_HOURS.
++ */
++
++import crypto from 'node:crypto';
++import { IDLE_LOCK_MINUTES, SESSION_TTL_HOURS } from '../config/index.ts';
++import { AppError, ErrorCodes } from '../config/errors.ts';
++import type { SubKeys } from './keys.service.ts';
++
++export interface Session {
++  token: string;
++  userId: number;
++  username: string;
++  role: string;
++  dongleId: string;
++  /** null untuk akun legacy yang belum punya keypair RSA */
++  privateKeyPem: string | null;
++  /** Cache subkey per percakapan (diturunkan lazy dari K_conv) */
++  subkeysByConv: Map<number, SubKeys>;
++  createdAt: number;
++  lastActivity: number;
++  expiresAt: number;
++}
++
++const sessions = new Map<string, Session>();
++
++function wipe(session: Session): void {
++  for (const sk of session.subkeysByConv.values()) {
++    sk.k_text_vig.fill(0);
++    sk.k_text_trans.fill(0);
++    sk.k_text_aes.fill(0);
++    sk.k_file.fill(0);
++    sk.k_stego.fill(0);
++  }
++  session.subkeysByConv.clear();
++  session.privateKeyPem = null;
++}
++
++export class SessionService {
++  /** FR-AUTH-03/05: dipanggil hanya setelah dongle, password, wajah, dan unlock key sukses */
++  static create(params: {
++    userId: number;
++    username: string;
++    role: string;
++    dongleId: string;
++    privateKeyPem: string | null;
++  }): Session {
++    const now = Date.now();
++    const session: Session = {
++      token: crypto.randomBytes(32).toString('hex'),
++      userId: params.userId,
++      username: params.username,
++      role: params.role,
++      dongleId: params.dongleId,
++      privateKeyPem: params.privateKeyPem,
++      subkeysByConv: new Map(),
++      createdAt: now,
++      lastActivity: now,
++      expiresAt: now + SESSION_TTL_HOURS * 3600_000,
++    };
++    sessions.set(session.token, session);
++    return session;
++  }
++
++  /**
++   * Ambil sesi valid. `touch: false` untuk request otomatis (polling) agar
++   * tidak memperpanjang idle-timer; hanya aksi user yang dihitung aktivitas.
++   */
++  static get(token: string, opts: { touch?: boolean } = {}): Session {
++    const session = sessions.get(token);
++    if (!session) {
++      throw new AppError(ErrorCodes.ERR_SESSION_EXPIRED, 'Sesi tidak valid. Silakan login ulang.', 401);
++    }
++    const now = Date.now();
++    const idleMs = IDLE_LOCK_MINUTES * 60_000;
++    if (now >= session.expiresAt || now - session.lastActivity > idleMs) {
++      SessionService.destroy(token);
++      throw new AppError(ErrorCodes.ERR_SESSION_EXPIRED, 'Sesi berakhir. Silakan login ulang.', 401);
++    }
++    if (opts.touch !== false) session.lastActivity = now;
++    return session;
++  }
++
++  /** FR-AUTH-10: hapus sesi + kunci dari memori */
++  static destroy(token: string): void {
++    const session = sessions.get(token);
++    if (!session) return;
++    wipe(session);
++    sessions.delete(token);
++  }
++
++  static clearAll(): void {
++    for (const t of [...sessions.keys()]) SessionService.destroy(t);
++  }
++}
