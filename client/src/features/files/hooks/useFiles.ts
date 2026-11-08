@@ -69,7 +69,21 @@ export function useFiles() {
   ) {
     setNotice('');
     try {
-      await reviewFile(id, status, reviewNote);
+      let reviewer = 'dosen_pembimbing';
+      if (typeof window !== 'undefined') {
+        const raw =
+          localStorage.getItem('skripsichat_user') ||
+          localStorage.getItem('aegis_user');
+        if (raw) {
+          try {
+            const u = JSON.parse(raw);
+            if (u.username) reviewer = u.username;
+          } catch {
+            // Abaikan
+          }
+        }
+      }
+      await reviewFile(id, status, reviewNote, reviewer);
       setNotice(`Status draf berhasil diperbarui menjadi ${status}!`);
       await loadFiles();
     } catch (err: any) {

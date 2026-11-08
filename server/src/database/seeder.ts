@@ -305,12 +305,10 @@ export function seedInitialDemoData(db: DatabaseSync, forceFresh = false): void 
   // PESAN PENTING (Enkripsi Kolom Database AES-256-GCM)
   // -------------------------------------------------------------
   const importantPlain = 'Target Sidang: Analisis avalanche effect super enkripsi harus mencapai di atas 45%, dan citra steganografi wajib memiliki PSNR > 38 dB.';
+  const masterKeyImp = KeysService.loadMasterDbKey();
   const ivImp = crypto.randomBytes(12);
-  const cipherImp = crypto.createCipheriv(
-    'aes-256-gcm',
-    crypto.createHash('sha256').update(process.env.SKRIPSICHAT_MASTER_DB_KEY || 'SkripsiChat_Academic_Database_Master_Key_2026!').digest(),
-    ivImp
-  );
+  const cipherImp = crypto.createCipheriv('aes-256-gcm', masterKeyImp, ivImp);
+  cipherImp.setAAD(Buffer.from(`important_messages.content|${msg1Id}`, 'utf8'));
   let encImp = cipherImp.update(importantPlain, 'utf8', 'hex');
   encImp += cipherImp.final('hex');
   const tagImp = cipherImp.getAuthTag().toString('hex');

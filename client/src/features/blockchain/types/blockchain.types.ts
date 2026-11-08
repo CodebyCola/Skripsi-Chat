@@ -32,7 +32,7 @@ export interface BlockchainData {
 export interface AcademicAssetItem {
   id: number;
   blockIndex: number;
-  assetType: 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC';
+  assetType: 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC' | 'ACC_BAB' | string;
   studentId: string;
   issuerId: string;
   docHash: string;

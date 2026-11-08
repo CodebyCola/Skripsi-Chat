@@ -172,7 +172,8 @@ export function MessagesView() {
                       className="h-9 px-3 rounded-lg border border-sage-border bg-canvas text-xs text-text-dark font-medium focus:bg-surface focus:border-primary focus:outline-none"
                     >
                       <option value="ACC">ACC (Persetujuan Sidang)</option>
-                      <option value="REVISI">REVISI (Catatan Revisi Mayor)</option>
+                      <option value="REVISI">REVISI (Catatan Revisi)</option>
+                      <option value="REVISI_PENTING">REVISI_PENTING (Catatan Revisi Krusial)</option>
                       <option value="JADWAL_SIDANG">JADWAL_SIDANG (Batas Waktu/Target)</option>
                     </select>
                   </div>
@@ -233,7 +234,7 @@ export function MessagesView() {
                             className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
                               imp.category === 'ACC'
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : imp.category === 'REVISI'
+                                : imp.category?.includes('REVISI')
                                 ? 'bg-amber-50 text-amber-800 border-amber-200'
                                 : 'bg-blue-50 text-blue-800 border-blue-200'
                             }`}

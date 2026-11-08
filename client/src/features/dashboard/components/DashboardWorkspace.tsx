@@ -32,12 +32,16 @@ export function DashboardWorkspace() {
     );
     if (!choice) return;
 
-    const normalized = choice.toUpperCase().trim() as 'ACC' | 'REVISI' | 'JADWAL_SIDANG';
-    if (['ACC', 'REVISI', 'JADWAL_SIDANG'].includes(normalized)) {
-      markImportant(msg.id, msg.content, normalized);
-    } else {
-      markImportant(msg.id, msg.content, 'ACC');
+    const raw = choice.trim().toUpperCase();
+    let cat: 'ACC' | 'REVISI' | 'JADWAL_SIDANG' = 'ACC';
+    if (raw === '1' || raw === 'ACC') {
+      cat = 'ACC';
+    } else if (raw === '2' || raw.includes('REVISI')) {
+      cat = 'REVISI';
+    } else if (raw === '3' || raw.includes('JADWAL')) {
+      cat = 'JADWAL_SIDANG';
     }
+    markImportant(msg.id, msg.content, cat);
   }
 
   return (

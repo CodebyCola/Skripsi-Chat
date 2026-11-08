@@ -39,6 +39,30 @@ export function FilesView() {
             </p>
           </div>
 
+          {/* ROLE WORKFLOW BANNER */}
+          <div className="p-3.5 rounded-xl border mb-5 flex items-center justify-between text-xs bg-surface border-sage-border shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isLecturer ? 'bg-primary text-white' : 'bg-sage-tint text-primary'}`}>
+                <span className="material-symbols-outlined text-lg">
+                  {isLecturer ? 'rate_review' : 'school'}
+                </span>
+              </div>
+              <div>
+                <span className="font-semibold text-text-dark">
+                  {isLecturer ? 'Mode Wewenang: Dosen Pembimbing' : 'Mode Akses: Mahasiswa Bimbingan'}
+                </span>
+                <p className="text-[11px] text-text-secondary mt-0.5">
+                  {isLecturer
+                    ? 'Anda memiliki wewenang telaah draf naskah: memberikan catatan revisi, meminta perbaikan bab, atau menyetujui (ACC).'
+                    : 'Anda dapat mengunggah draf skripsi terenkripsi dan mendekripsi berkas draf Anda. Tombol dan formulir telaah naskah hanya dapat diakses oleh Dosen Pembimbing.'}
+                </p>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium border bg-canvas border-sage-border text-text-secondary shrink-0">
+              {user?.role || (isLecturer ? 'DOSEN_PEMBIMBING' : 'MAHASISWA')}
+            </span>
+          </div>
+
           {/* NOTICE BANNER */}
           {notice && (
             <div className="p-3.5 rounded-xl bg-sage-tint border border-sage-border text-xs text-text-dark mb-5 flex items-center justify-between">

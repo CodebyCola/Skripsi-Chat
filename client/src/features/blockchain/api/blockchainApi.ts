@@ -24,7 +24,7 @@ export async function restoreBlockchain(): Promise<BlockchainData> {
 }
 
 export async function issueAcademicAsset(payload: {
-  assetType: 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC';
+  assetType: 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC' | 'ACC_BAB' | string;
   studentId: string;
   issuerId: string;
   title: string;
@@ -48,5 +48,13 @@ export async function fetchStudentAssets(
 ): Promise<AcademicAssetItem[]> {
   return await apiRequest<AcademicAssetItem[]>(
     `/api/blockchain/student-assets?studentId=${encodeURIComponent(studentId)}`
+  );
+}
+
+export async function fetchIssuerAssets(
+  issuerId: string
+): Promise<AcademicAssetItem[]> {
+  return await apiRequest<AcademicAssetItem[]>(
+    `/api/blockchain/issuer-assets?issuerId=${encodeURIComponent(issuerId)}`
   );
 }

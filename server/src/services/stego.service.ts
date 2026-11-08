@@ -200,7 +200,7 @@ export class StegoService {
       encryptionSpec: {
         columnEncryptionAlgorithm: 'AES-256-GCM (Authenticated Encryption)',
         passwordHashAlgorithm: 'Scrypt (N=16384, r=8, p=1) + 16-Byte Random Salt',
-        sqliteFilePath: 'server/vault.db',
+        sqliteFilePath: 'server/prisma/dev.db',
       },
       usersTable: rawUsers.map((u) => ({
         id: u.id,

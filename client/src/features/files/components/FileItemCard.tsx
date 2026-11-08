@@ -105,8 +105,8 @@ export function FileItemCard({
         </div>
       )}
 
-      {/* REVIEW FORM COLLAPSIBLE */}
-      {showReviewInput && onReview && (
+      {/* REVIEW FORM COLLAPSIBLE (KHUSUS ROLE DOSEN PEMBIMBING) */}
+      {isLecturer && showReviewInput && onReview && (
         <div className="p-3 rounded-lg bg-canvas border border-sage-border flex flex-col gap-2">
           <textarea
             rows={2}
@@ -154,7 +154,8 @@ export function FileItemCard({
         </span>
 
         <div className="flex items-center gap-2">
-          {onReview && (
+          {/* Tombol Telaah Dosen HANYA untuk Role Dosen */}
+          {isLecturer && onReview && (
             <button
               type="button"
               onClick={() => setShowReviewInput((s) => !s)}

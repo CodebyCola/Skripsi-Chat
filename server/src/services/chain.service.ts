@@ -22,7 +22,7 @@ import { AuditService } from './audit.service.ts';
 import { CHAIN_DIFFICULTY } from '../config/index.ts';
 import { AppError, ErrorCodes } from '../config/errors.ts';
 
-export type AcademicAssetType = 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC' | 'DRAFT_SUBMISSION';
+export type AcademicAssetType = 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC' | 'DRAFT_SUBMISSION' | 'ACC_BAB';
 
 export interface IssueAssetParams {
   assetType: AcademicAssetType;

@@ -132,12 +132,19 @@ export class VaultService {
         const authTag = Buffer.from(r.authTagHex, 'hex');
         const ciphertext = Buffer.from(r.contentEnc, 'hex');
 
-        const decipher = crypto.createDecipheriv('aes-256-gcm', masterKey, nonce);
-        decipher.setAAD(Buffer.from(`important_messages.content|${r.messageId}`, 'utf8'));
-        decipher.setAuthTag(authTag);
-
-        const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-        contentPlain = decrypted.toString('utf8');
+        try {
+          const decipher = crypto.createDecipheriv('aes-256-gcm', masterKey, nonce);
+          decipher.setAAD(Buffer.from(`important_messages.content|${r.messageId}`, 'utf8'));
+          decipher.setAuthTag(authTag);
+          const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+          contentPlain = decrypted.toString('utf8');
+        } catch {
+          // Fallback tanpa AAD untuk backward compatibility data terenkripsi lama
+          const decipherFallback = crypto.createDecipheriv('aes-256-gcm', masterKey, nonce);
+          decipherFallback.setAuthTag(authTag);
+          const decryptedFallback = Buffer.concat([decipherFallback.update(ciphertext), decipherFallback.final()]);
+          contentPlain = decryptedFallback.toString('utf8');
+        }
       } catch {
         // Tag gagal didekripsi
       }

@@ -26,6 +26,11 @@ export class FileService {
       authTagHex: string;
       originalSha256: string;
       uploaderEncrypted: string;
+      version: number;
+      status: 'SUBMITTED' | 'REVISION' | 'APPROVED';
+      reviewedBy: string;
+      reviewNote: string;
+      reviewedAt: string;
       createdAt: string;
     }>;
 
@@ -49,6 +54,11 @@ export class FileService {
         uploader: decryptDatabaseColumn(r.uploaderEncrypted),
         uploaderRawEncryptedInDb: r.uploaderEncrypted,
         cipherPreviewHex,
+        version: r.version || 1,
+        status: r.status || 'SUBMITTED',
+        reviewedBy: r.reviewedBy || '',
+        reviewNote: r.reviewNote || '',
+        reviewedAt: r.reviewedAt || '',
         createdAt: r.createdAt,
       };
     });

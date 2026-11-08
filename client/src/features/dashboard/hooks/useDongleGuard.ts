@@ -27,6 +27,28 @@ export function useDongleGuard() {
         setIsLocked(true);
         setActiveDongle(null);
       } else {
+        // Validasi kepemilikan dongle terhadap user yang sedang aktif di sesi
+        if (typeof window !== 'undefined') {
+          const raw =
+            localStorage.getItem('skripsichat_user') ||
+            localStorage.getItem('aegis_user');
+          if (raw) {
+            try {
+              const currentUser = JSON.parse(raw);
+              if (
+                res.activeDongle?.username &&
+                currentUser?.username &&
+                res.activeDongle.username !== currentUser.username
+              ) {
+                setIsLocked(true);
+                setActiveDongle(null);
+                return;
+              }
+            } catch {
+              // Abaikan kegagalan parse JSON
+            }
+          }
+        }
         setIsLocked(false);
         setActiveDongle(res.activeDongle);
       }

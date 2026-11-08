@@ -25,12 +25,12 @@ export function DongleLockModal({
             Hardware USB Dongle Terputus
           </h2>
           <p className="text-xs text-text-secondary leading-relaxed">
-            Koneksi ke kunci perangkat fisik <span className="font-mono text-primary font-semibold">.skripsi_key</span> terputus. Sesuai protokol keamanan multi-faktor, seluruh akses brankas dan percakapan bimbingan dikunci seketika.
+            Koneksi ke kunci perangkat fisik <span className="font-mono text-primary font-semibold">.skripsi_key</span> terputus atau tidak cocok. Sesuai protokol keamanan multi-faktor, seluruh akses brankas dan percakapan bimbingan dikunci seketika.
           </p>
         </div>
 
         <div className="p-3 rounded-lg bg-canvas border border-sage-border w-full text-[11px] text-text-secondary font-mono">
-          Status: Port Dongle Kosong / Non-Aktif
+          Status: Port Dongle Kosong atau Kunci Tidak Sesuai
         </div>
 
         <div className="flex items-center gap-3 w-full pt-1">
