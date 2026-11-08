@@ -1,0 +1,1945 @@
+From 7524b213148a33a4a6bb04e42769efb4258a63e9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 8 Nov 2026 10:00:13 +0000
+Subject: [PATCH 1/7] refactor(dashboard): tambah PageShell, token
+ security-valid, dan menu Foto Dokumen + DB Inspector (dev) di sidebar
+
+---
+ client/src/app/globals.css                    |  1 +
+ .../dashboard/components/DashboardSidebar.tsx |  9 +++++++
+ .../dashboard/components/PageShell.tsx        | 27 +++++++++++++++++++
+ client/src/features/dashboard/index.ts        |  1 +
+ 4 files changed, 38 insertions(+)
+ create mode 100644 client/src/features/dashboard/components/PageShell.tsx
+
+diff --git a/client/src/app/globals.css b/client/src/app/globals.css
+index 8ec15de..dabeea6 100644
+--- a/client/src/app/globals.css
++++ b/client/src/app/globals.css
+@@ -39,6 +39,7 @@
+   --color-tertiary-container: #005e3f;
+   --color-surface-container: #e3f1e9;
+   --color-security-danger: #BA4343;
++  --color-security-valid: #2E7D5B;
+   --color-inverse-surface: #27332e;
+   --color-on-primary-fixed: #002114;
+   --color-secondary: #58605c;
+diff --git a/client/src/features/dashboard/components/DashboardSidebar.tsx b/client/src/features/dashboard/components/DashboardSidebar.tsx
+index ba00fb8..49c3c9e 100644
+--- a/client/src/features/dashboard/components/DashboardSidebar.tsx
++++ b/client/src/features/dashboard/components/DashboardSidebar.tsx
+@@ -38,6 +38,15 @@ const NAV_ITEMS: NavItemConfig[] = [
+     icon: 'verified',
+     badgeIcon: 'lock',
+   },
++  {
++    label: 'Foto Dokumen',
++    href: '/dashboard/stego',
++    icon: 'image',
++  },
++  // Halaman inspeksi database hanya untuk pengembangan
++  ...(process.env.NODE_ENV !== 'production'
++    ? [{ label: 'DB Inspector', href: '/dashboard/db-view', icon: 'storage' }]
++    : []),
+ ];
+ 
+ export function DashboardSidebar() {
+diff --git a/client/src/features/dashboard/components/PageShell.tsx b/client/src/features/dashboard/components/PageShell.tsx
+new file mode 100644
+index 0000000..8942c6a
+--- /dev/null
++++ b/client/src/features/dashboard/components/PageShell.tsx
+@@ -0,0 +1,27 @@
++import React from 'react';
++
++interface PageShellProps {
++  title: string;
++  subtitle: string;
++  actions?: React.ReactNode;
++  children: React.ReactNode;
++}
++
++export function PageShell({ title, subtitle, actions, children }: PageShellProps) {
++  return (
++    <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-canvas">
++      <div className="h-16 px-6 bg-surface border-b border-sage-border flex items-center justify-between shrink-0">
++        <div className="flex flex-col min-w-0">
++          <span className="text-[11px] text-text-secondary">{subtitle}</span>
++          <h1 className="font-semibold text-sm text-text-dark truncate">
++            {title}
++          </h1>
++        </div>
++        {actions}
++      </div>
++      <div className="flex-1 overflow-y-auto p-6">
++        <div className="max-w-4xl mx-auto space-y-4">{children}</div>
++      </div>
++    </div>
++  );
++}
+diff --git a/client/src/features/dashboard/index.ts b/client/src/features/dashboard/index.ts
+index abc4e52..a35689e 100644
+--- a/client/src/features/dashboard/index.ts
++++ b/client/src/features/dashboard/index.ts
+@@ -1,4 +1,5 @@
+ export * from './components/DashboardLayout';
++export * from './components/PageShell';
+ export * from './components/DashboardHeader';
+ export * from './components/DashboardSidebar';
+ export * from './components/DashboardWorkspace';
+-- 
+2.43.0
+
+
+From 0d4a8d13c50b696eda79b38e7916860fe698c4bc Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 8 Nov 2026 10:00:13 +0000
+Subject: [PATCH 2/7] refactor(db-view): migrasi ke DashboardLayout + restyle
+ sage
+
+---
+ .../components/DbInspectorView.tsx            | 48 ++++++++-----------
+ .../db-inspector/components/DbUserCard.tsx    | 38 +++------------
+ 2 files changed, 27 insertions(+), 59 deletions(-)
+
+diff --git a/client/src/features/db-inspector/components/DbInspectorView.tsx b/client/src/features/db-inspector/components/DbInspectorView.tsx
+index 89663bc..b0963f2 100644
+--- a/client/src/features/db-inspector/components/DbInspectorView.tsx
++++ b/client/src/features/db-inspector/components/DbInspectorView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardNav } from '@/features/dashboard';
++import { DashboardLayout, PageShell } from '@/features/dashboard';
+ import { useDbInspector } from '../hooks/useDbInspector';
+ import { DbUserCard } from './DbUserCard';
+ 
+@@ -9,37 +9,31 @@ export function DbInspectorView() {
+   const { data, loading, errorMsg, reload } = useDbInspector();
+ 
+   return (
+-    <>
+-      <DashboardNav />
+-      <main
+-        style={{ maxWidth: 1020, margin: '0 auto', padding: '0 20px 48px' }}
+-      >
+-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+-          <h1>
+-            🗄️ Inspector Enkripsi Database (Database-at-Rest AES-256-GCM)
+-          </h1>
+-          <button type="button" onClick={reload} style={{ background: '#1e293b', border: '1px solid #334155' }}>
+-            🔄 Refresh DB
++    <DashboardLayout>
++      <PageShell
++        title="Inspector Enkripsi Database"
++        subtitle="Database-at-Rest AES-256-GCM"
++        actions={
++          <button
++            type="button"
++            onClick={reload}
++            className="h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
++          >
++            <span className="material-symbols-outlined text-base text-text-secondary">
++              refresh
++            </span>
++            <span>Refresh DB</span>
+           </button>
+-        </div>
+-
++        }
++      >
+         {errorMsg && (
+-          <div
+-            style={{
+-              padding: 12,
+-              borderRadius: 8,
+-              background: 'rgba(239,68,68,0.15)',
+-              border: '1px solid #ef4444',
+-              color: '#fca5a5',
+-              marginBottom: 16,
+-            }}
+-          >
++          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+             {errorMsg}
+           </div>
+         )}
+ 
+         {loading && (
+-          <p style={{ color: '#94a3b8', fontSize: 13 }}>
++          <p className="text-xs text-text-secondary">
+             Memuat perbandingan tabel database dari Server...
+           </p>
+         )}
+@@ -47,7 +41,7 @@ export function DbInspectorView() {
+         {data?.usersTable?.map((user) => (
+           <DbUserCard key={user.id} user={user} />
+         ))}
+-      </main>
+-    </>
++      </PageShell>
++    </DashboardLayout>
+   );
+ }
+diff --git a/client/src/features/db-inspector/components/DbUserCard.tsx b/client/src/features/db-inspector/components/DbUserCard.tsx
+index a3b5576..921150f 100644
+--- a/client/src/features/db-inspector/components/DbUserCard.tsx
++++ b/client/src/features/db-inspector/components/DbUserCard.tsx
+@@ -7,46 +7,20 @@ interface DbUserCardProps {
+ 
+ export function DbUserCard({ user }: DbUserCardProps) {
+   return (
+-    <div
+-      style={{
+-        background: '#111827',
+-        padding: 16,
+-        borderRadius: 10,
+-        border: '1px solid #334155',
+-        marginBottom: 14,
+-      }}
+-    >
+-      <h3>
++    <div className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs">
++      <h3 className="text-sm font-semibold text-text-dark">
+         User #{user.id} (@{user.username})
+       </h3>
+-      <p style={{ color: '#f87171', fontSize: 13, marginTop: 8 }}>
++      <p className="mt-3 mb-1.5 text-xs font-medium text-security-danger">
+         Raw di Tabel SQLite (Ciphertext AES-256-GCM &amp; Scrypt):
+       </p>
+-      <pre
+-        style={{
+-          background: '#070a12',
+-          padding: 10,
+-          borderRadius: 8,
+-          overflowX: 'auto',
+-          color: '#38bdf8',
+-          fontSize: 12,
+-        }}
+-      >
++      <pre className="bg-canvas border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-text-dark overflow-x-auto">
+         {JSON.stringify(user.rawInSqlite, null, 2)}
+       </pre>
+-      <p style={{ color: '#34d399', fontSize: 13, marginTop: 8 }}>
++      <p className="mt-3 mb-1.5 text-xs font-medium text-primary">
+         Hasil Dekripsi di Aplikasi:
+       </p>
+-      <pre
+-        style={{
+-          background: '#070a12',
+-          padding: 10,
+-          borderRadius: 8,
+-          overflowX: 'auto',
+-          color: '#a7f3d0',
+-          fontSize: 12,
+-        }}
+-      >
++      <pre className="bg-sage-tint border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-text-dark overflow-x-auto">
+         {JSON.stringify(user.decryptedInApp, null, 2)}
+       </pre>
+     </div>
+-- 
+2.43.0
+
+
+From b19b85fec7c16c049cd2af3b57050b3fa800c1e4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 8 Nov 2026 10:00:13 +0000
+Subject: [PATCH 3/7] refactor(blockchain): migrasi ke DashboardLayout +
+ restyle sage
+
+---
+ .../blockchain/components/BlockCard.tsx       | 32 +++++------------
+ .../components/BlockchainControls.tsx         | 34 +++++++++++--------
+ .../components/BlockchainStatusBanner.tsx     | 31 +++++++++--------
+ .../blockchain/components/BlockchainView.tsx  | 31 +++++------------
+ 4 files changed, 54 insertions(+), 74 deletions(-)
+
+diff --git a/client/src/features/blockchain/components/BlockCard.tsx b/client/src/features/blockchain/components/BlockCard.tsx
+index b957bf6..abe1b6f 100644
+--- a/client/src/features/blockchain/components/BlockCard.tsx
++++ b/client/src/features/blockchain/components/BlockCard.tsx
+@@ -11,34 +11,20 @@ export function BlockCard({ block, detail }: BlockCardProps) {
+ 
+   return (
+     <div
+-      style={{
+-        background: '#111827',
+-        padding: 16,
+-        borderRadius: 10,
+-        border: '1px solid #334155',
+-        borderLeft: `5px solid ${isValid ? '#10b981' : '#ef4444'}`,
+-        marginBottom: 12,
+-      }}
++      className={`bg-surface border border-sage-border border-l-4 ${
++        isValid ? 'border-l-security-valid' : 'border-l-security-danger'
++      } rounded-xl p-4 shadow-xs`}
+     >
+-      <strong>
++      <p className="text-xs font-semibold text-text-dark">
+         Blok #{block.index} — [{block.actionType}] {block.assetTitle}
+-      </strong>
++      </p>
+       {detail?.errorReason && (
+-        <div style={{ color: '#fca5a5', fontSize: 12.5, marginTop: 4 }}>
+-          🚨 {detail.errorReason}
++        <div className="mt-1 flex items-center gap-1 text-[11px] text-security-danger">
++          <span className="material-symbols-outlined text-sm">gpp_bad</span>
++          <span>{detail.errorReason}</span>
+         </div>
+       )}
+-      <pre
+-        style={{
+-          background: '#070a12',
+-          padding: 10,
+-          borderRadius: 8,
+-          overflowX: 'auto',
+-          color: '#38bdf8',
+-          fontSize: 12,
+-          marginTop: 8,
+-        }}
+-      >
++      <pre className="mt-2 bg-canvas border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-text-dark overflow-x-auto">
+         {`previousHash : ${block.previousHash}\nassetHash    : ${block.assetDataHash}\nblockHash    : ${block.hash} (nonce: ${block.nonce})`}
+       </pre>
+     </div>
+diff --git a/client/src/features/blockchain/components/BlockchainControls.tsx b/client/src/features/blockchain/components/BlockchainControls.tsx
+index 3b64875..06e5094 100644
+--- a/client/src/features/blockchain/components/BlockchainControls.tsx
++++ b/client/src/features/blockchain/components/BlockchainControls.tsx
+@@ -15,33 +15,39 @@ export function BlockchainControls({
+   onTamper,
+   onRestore,
+ }: BlockchainControlsProps) {
++  const base =
++    'h-8 px-3.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed';
++
+   return (
+-    <div
+-      style={{
+-        display: 'flex',
+-        gap: 10,
+-        marginBottom: 16,
+-        flexWrap: 'wrap',
+-      }}
+-    >
+-      <button type="button" onClick={onVerify} disabled={loading}>
+-        🔍 Verifikasi Integritas Rantai
++    <div className="flex gap-2.5 flex-wrap">
++      <button
++        type="button"
++        onClick={onVerify}
++        disabled={loading}
++        className={`${base} bg-primary hover:bg-primary-hover text-white shadow-xs`}
++      >
++        <span className="material-symbols-outlined text-base">fact_check</span>
++        <span>Verifikasi Integritas Rantai</span>
+       </button>
+       <button
+         type="button"
+         onClick={onTamper}
+         disabled={loading}
+-        style={{ background: '#dc2626' }}
++        className={`${base} bg-security-danger hover:opacity-90 text-white`}
+       >
+-        ⚠️ Simulasi Tamper Blok #1
++        <span className="material-symbols-outlined text-base">warning</span>
++        <span>Simulasi Tamper Blok #1</span>
+       </button>
+       <button
+         type="button"
+         onClick={onRestore}
+         disabled={loading}
+-        style={{ background: '#059669' }}
++        className={`${base} border border-sage-border bg-surface hover:bg-canvas text-text-dark`}
+       >
+-        🛠️ Pulihkan Integritas Rantai
++        <span className="material-symbols-outlined text-base text-text-secondary">
++          build
++        </span>
++        <span>Pulihkan Integritas Rantai</span>
+       </button>
+     </div>
+   );
+diff --git a/client/src/features/blockchain/components/BlockchainStatusBanner.tsx b/client/src/features/blockchain/components/BlockchainStatusBanner.tsx
+index 83bf208..f093904 100644
+--- a/client/src/features/blockchain/components/BlockchainStatusBanner.tsx
++++ b/client/src/features/blockchain/components/BlockchainStatusBanner.tsx
+@@ -14,22 +14,23 @@ export function BlockchainStatusBanner({
+ 
+   return (
+     <div
+-      style={{
+-        padding: 14,
+-        borderRadius: 8,
+-        marginBottom: 16,
+-        background: isValid
+-          ? 'rgba(16,185,129,0.15)'
+-          : 'rgba(239,68,68,0.18)',
+-        border: `1px solid ${isValid ? '#10b981' : '#ef4444'}`,
+-      }}
++      className={`p-3.5 rounded-lg border text-xs flex items-center gap-2 ${
++        isValid
++          ? 'bg-sage-tint border-sage-border text-primary'
++          : 'bg-red-50 border-red-200 text-security-danger'
++      }`}
+     >
+-      Status Rantai:{' '}
+-      <strong>
+-        {isValid
+-          ? `✅ VALID (${validation.totalBlocks} Blok — Seluruh Hash SHA-256 Cocok)`
+-          : `🚨 INVALID / RUSAK MULAI BLOK #${validation.firstCorruptedIndex}`}
+-      </strong>
++      <span className="material-symbols-outlined text-lg shrink-0">
++        {isValid ? 'verified_user' : 'gpp_bad'}
++      </span>
++      <span>
++        Status Rantai:{' '}
++        <strong>
++          {isValid
++            ? `VALID (${validation.totalBlocks} Blok — Seluruh Hash SHA-256 Cocok)`
++            : `INVALID / RUSAK MULAI BLOK #${validation.firstCorruptedIndex}`}
++        </strong>
++      </span>
+     </div>
+   );
+ }
+diff --git a/client/src/features/blockchain/components/BlockchainView.tsx b/client/src/features/blockchain/components/BlockchainView.tsx
+index 337d2f5..9b2748a 100644
+--- a/client/src/features/blockchain/components/BlockchainView.tsx
++++ b/client/src/features/blockchain/components/BlockchainView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardNav } from '@/features/dashboard';
++import { DashboardLayout, PageShell } from '@/features/dashboard';
+ import { useBlockchain } from '../hooks/useBlockchain';
+ import { BlockCard } from './BlockCard';
+ import { BlockchainControls } from './BlockchainControls';
+@@ -12,15 +12,11 @@ export function BlockchainView() {
+     useBlockchain();
+ 
+   return (
+-    <>
+-      <DashboardNav />
+-      <main
+-        style={{ maxWidth: 1020, margin: '0 auto', padding: '0 20px 48px' }}
++    <DashboardLayout>
++      <PageShell
++        title="Buku Besar Blockchain SHA-256"
++        subtitle="Chain of Custody"
+       >
+-        <h1 style={{ marginBottom: 14 }}>
+-          ⛓️ Buku Besar Blockchain SHA-256 (Chain of Custody)
+-        </h1>
+-
+         <BlockchainControls
+           loading={loading}
+           onVerify={loadChain}
+@@ -29,23 +25,14 @@ export function BlockchainView() {
+         />
+ 
+         {errorMsg && (
+-          <div
+-            style={{
+-              padding: 12,
+-              borderRadius: 8,
+-              background: 'rgba(239,68,68,0.15)',
+-              border: '1px solid #ef4444',
+-              color: '#fca5a5',
+-              marginBottom: 16,
+-            }}
+-          >
++          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+             {errorMsg}
+           </div>
+         )}
+ 
+         <BlockchainStatusBanner validation={data?.validation} />
+ 
+-        <h2 style={{ marginBottom: 12 }}>
++        <h2 className="text-xs font-semibold text-text-dark">
+           Daftar Blok Berantai ({data?.blocks?.length || 0})
+         </h2>
+ 
+@@ -56,7 +43,7 @@ export function BlockchainView() {
+             detail={data.validation?.details?.[idx]}
+           />
+         ))}
+-      </main>
+-    </>
++      </PageShell>
++    </DashboardLayout>
+   );
+ }
+-- 
+2.43.0
+
+
+From e397c5c8eb75a3dbad11e067564ce44b7b2c8fa8 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 8 Nov 2026 10:00:13 +0000
+Subject: [PATCH 4/7] refactor(stego): migrasi ke DashboardLayout + restyle
+ sage
+
+---
+ .../stego/components/StegoEmbedForm.tsx       | 87 ++++++++++++-------
+ .../stego/components/StegoGalleryItem.tsx     | 59 +++++--------
+ .../features/stego/components/StegoView.tsx   | 48 ++++------
+ 3 files changed, 96 insertions(+), 98 deletions(-)
+
+diff --git a/client/src/features/stego/components/StegoEmbedForm.tsx b/client/src/features/stego/components/StegoEmbedForm.tsx
+index 13dcc12..c6cfac4 100644
+--- a/client/src/features/stego/components/StegoEmbedForm.tsx
++++ b/client/src/features/stego/components/StegoEmbedForm.tsx
+@@ -14,6 +14,10 @@ interface StegoEmbedFormProps {
+   onSubmit: (e: React.FormEvent) => void;
+ }
+ 
++const labelCls = 'block text-[11px] font-medium text-text-secondary mb-1';
++const inputCls =
++  'w-full rounded-lg border border-sage-border bg-canvas px-3 py-2 text-xs text-text-dark placeholder-text-muted focus:border-primary focus:bg-surface focus:outline-none transition';
++
+ export function StegoEmbedForm({
+   title,
+   onTitleChange,
+@@ -28,42 +32,63 @@ export function StegoEmbedForm({
+   return (
+     <form
+       onSubmit={onSubmit}
+-      style={{
+-        background: '#111827',
+-        padding: 20,
+-        borderRadius: 12,
+-        border: '1px solid #334155',
+-        marginBottom: 24,
+-      }}
++      className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs space-y-3.5"
+     >
+-      <label>Judul Bukti Gambar</label>
+-      <input
+-        value={title}
+-        onChange={(e) => onTitleChange(e.target.value)}
+-        required
+-      />
++      <div>
++        <label className={labelCls}>Judul Bukti Gambar</label>
++        <input
++          value={title}
++          onChange={(e) => onTitleChange(e.target.value)}
++          required
++          className={inputCls}
++        />
++      </div>
+ 
+-      <label>Pilih Gambar Cover (Kosongkan untuk Gambar PNG Otomatis)</label>
+-      <input type="file" accept="image/*" onChange={onSelectCover} />
++      <div>
++        <label className={labelCls}>
++          Pilih Gambar Cover (Kosongkan untuk Gambar PNG Otomatis)
++        </label>
++        <input
++          type="file"
++          accept="image/*"
++          onChange={onSelectCover}
++          className="block w-full text-xs text-text-secondary file:mr-3 file:h-8 file:px-3 file:rounded-lg file:border file:border-sage-border file:bg-surface file:text-xs file:text-text-dark hover:file:bg-canvas"
++        />
++      </div>
+ 
+-      <label>Pesan Rahasia yang Disisipkan ke Bit LSB PNG</label>
+-      <textarea
+-        value={secretMessage}
+-        onChange={(e) => onSecretMessageChange(e.target.value)}
+-        placeholder="Ketik pesan rahasia investigasi / catatan naskah..."
+-        rows={3}
+-        required
+-      />
++      <div>
++        <label className={labelCls}>
++          Pesan Rahasia yang Disisipkan ke Bit LSB PNG
++        </label>
++        <textarea
++          value={secretMessage}
++          onChange={(e) => onSecretMessageChange(e.target.value)}
++          placeholder="Ketik pesan rahasia investigasi / catatan naskah..."
++          rows={3}
++          required
++          className={`${inputCls} resize-none leading-relaxed`}
++        />
++      </div>
+ 
+-      <label>Passkey Steganografi (Kunci Ekstraksi)</label>
+-      <input
+-        value={passkey}
+-        onChange={(e) => onPasskeyChange(e.target.value)}
+-        required
+-      />
++      <div>
++        <label className={labelCls}>Passkey Steganografi (Kunci Ekstraksi)</label>
++        <input
++          value={passkey}
++          onChange={(e) => onPasskeyChange(e.target.value)}
++          required
++          className={inputCls}
++        />
++      </div>
+ 
+-      <button type="submit" disabled={loading}>
+-        {loading ? 'Memproses Penyisipan LSB...' : '🧬 Tanamkan Pesan ke LSB PNG'}
++      <button
++        type="submit"
++        disabled={loading}
++        className="h-8 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
++      >
++        <span className="material-symbols-outlined text-base">image</span>
++        <span>
++          {loading ? 'Memproses Penyisipan LSB...' : 'Tanamkan Pesan ke LSB PNG'}
++        </span>
+       </button>
+     </form>
+   );
+diff --git a/client/src/features/stego/components/StegoGalleryItem.tsx b/client/src/features/stego/components/StegoGalleryItem.tsx
+index 24fb16f..f7062df 100644
+--- a/client/src/features/stego/components/StegoGalleryItem.tsx
++++ b/client/src/features/stego/components/StegoGalleryItem.tsx
+@@ -10,52 +10,41 @@ interface StegoGalleryItemProps {
+ 
+ export function StegoGalleryItem({ item, onExtract }: StegoGalleryItemProps) {
+   return (
+-    <div
+-      style={{
+-        background: '#111827',
+-        padding: 16,
+-        borderRadius: 10,
+-        border: '1px solid #334155',
+-        marginBottom: 12,
+-        display: 'flex',
+-        gap: 16,
+-        alignItems: 'center',
+-        flexWrap: 'wrap',
+-      }}
+-    >
++    <div className="bg-surface border border-sage-border rounded-xl p-4 shadow-xs flex gap-4 items-center flex-wrap">
+       {item.imageDataUrl && (
+         <img
+           src={item.imageDataUrl}
+           alt={item.title}
+-          style={{
+-            width: 120,
+-            height: 85,
+-            objectFit: 'cover',
+-            borderRadius: 8,
+-            border: '1px solid #334155',
+-          }}
++          className="w-[120px] h-[85px] object-cover rounded-lg border border-sage-border"
+         />
+       )}
+-      <div style={{ flex: 1 }}>
+-        <strong>
++      <div className="flex-1 min-w-0">
++        <p className="text-xs font-semibold text-text-dark">
+           {item.title} — PSNR: {item.psnrDb} dB (MSE: {item.mse})
+-        </strong>
+-        <div style={{ fontSize: 12.5, color: '#94a3b8', marginTop: 4 }}>
++        </p>
++        <p className="mt-1 text-[11px] font-mono text-text-secondary">
+           Resolusi: {item.width}x{item.height} px | Bit Tertanam:{' '}
+           {item.embeddedBitsCount} bit
+-        </div>
+-        <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+-          <button type="button" onClick={() => onExtract(item.id)}>
+-            🔍 Ekstrak Pesan dari LSB
++        </p>
++        <div className="mt-2.5 flex gap-2 flex-wrap">
++          <button
++            type="button"
++            onClick={() => onExtract(item.id)}
++            className="h-8 px-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition"
++          >
++            <span className="material-symbols-outlined text-base">search</span>
++            <span>Ekstrak Pesan dari LSB</span>
+           </button>
+           {item.imageDataUrl && (
+-            <a href={item.imageDataUrl} download={item.storedPngName}>
+-              <button
+-                type="button"
+-                style={{ background: '#1e293b', border: '1px solid #334155' }}
+-              >
+-                ⬇️ Unduh PNG
+-              </button>
++            <a
++              href={item.imageDataUrl}
++              download={item.storedPngName}
++              className="h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
++            >
++              <span className="material-symbols-outlined text-base text-text-secondary">
++                download
++              </span>
++              <span>Unduh PNG</span>
+             </a>
+           )}
+         </div>
+diff --git a/client/src/features/stego/components/StegoView.tsx b/client/src/features/stego/components/StegoView.tsx
+index 03916b9..765a406 100644
+--- a/client/src/features/stego/components/StegoView.tsx
++++ b/client/src/features/stego/components/StegoView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardNav } from '@/features/dashboard';
++import { DashboardLayout, PageShell } from '@/features/dashboard';
+ import { useStego } from '../hooks/useStego';
+ import { StegoEmbedForm } from './StegoEmbedForm';
+ import { StegoGalleryItem } from './StegoGalleryItem';
+@@ -24,26 +24,13 @@ export function StegoView() {
+   } = useStego();
+ 
+   return (
+-    <>
+-      <DashboardNav />
+-      <main
+-        style={{ maxWidth: 1020, margin: '0 auto', padding: '0 20px 48px' }}
++    <DashboardLayout>
++      <PageShell
++        title="Studio Steganografi Gambar PNG"
++        subtitle="LSB Embedding"
+       >
+-        <h1 style={{ marginBottom: 14 }}>
+-          🖼️ Studio Steganografi Gambar PNG (LSB Embedding)
+-        </h1>
+-
+         {errorMsg && (
+-          <div
+-            style={{
+-              padding: 12,
+-              borderRadius: 8,
+-              background: 'rgba(239,68,68,0.15)',
+-              border: '1px solid #ef4444',
+-              color: '#fca5a5',
+-              marginBottom: 16,
+-            }}
+-          >
++          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+             {errorMsg}
+           </div>
+         )}
+@@ -61,20 +48,17 @@ export function StegoView() {
+         />
+ 
+         {extractedText && (
+-          <div
+-            style={{
+-              padding: 14,
+-              background: 'rgba(16,185,129,0.15)',
+-              border: '1px solid #10b981',
+-              borderRadius: 8,
+-              marginBottom: 16,
+-            }}
+-          >
+-            ✅ Pesan Rahasia Terekstrak: <strong>{extractedText}</strong>
++          <div className="p-3.5 rounded-lg bg-sage-tint border border-sage-border text-primary text-xs flex items-start gap-2">
++            <span className="material-symbols-outlined text-lg shrink-0">
++              check_circle
++            </span>
++            <span>
++              Pesan Rahasia Terekstrak: <strong>{extractedText}</strong>
++            </span>
+           </div>
+         )}
+ 
+-        <h2 style={{ marginBottom: 12 }}>
++        <h2 className="text-xs font-semibold text-text-dark">
+           Galeri Citra Steganografi di Server ({gallery.length})
+         </h2>
+ 
+@@ -85,7 +69,7 @@ export function StegoView() {
+             onExtract={handleExtract}
+           />
+         ))}
+-      </main>
+-    </>
++      </PageShell>
++    </DashboardLayout>
+   );
+ }
+-- 
+2.43.0
+
+
+From 95fb4e1a82c87685ff68460ce99ff0a6069a3024 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 8 Nov 2026 10:00:13 +0000
+Subject: [PATCH 5/7] refactor(files): migrasi ke DashboardLayout + restyle
+ sage
+
+---
+ .../files/components/FileItemCard.tsx         | 35 +++++++------
+ .../files/components/FileUploadCard.tsx       | 51 +++++++++++--------
+ .../features/files/components/FilesView.tsx   | 31 ++++-------
+ 3 files changed, 56 insertions(+), 61 deletions(-)
+
+diff --git a/client/src/features/files/components/FileItemCard.tsx b/client/src/features/files/components/FileItemCard.tsx
+index 6afbd91..15e95c2 100644
+--- a/client/src/features/files/components/FileItemCard.tsx
++++ b/client/src/features/files/components/FileItemCard.tsx
+@@ -10,30 +10,29 @@ interface FileItemCardProps {
+ 
+ export function FileItemCard({ file, onDecrypt }: FileItemCardProps) {
+   return (
+-    <div
+-      style={{
+-        background: '#111827',
+-        padding: 16,
+-        borderRadius: 10,
+-        border: '1px solid #334155',
+-        marginBottom: 12,
+-      }}
+-    >
+-      <strong>
+-        📄 {file.originalName} ({file.sizeBytes} bytes)
+-      </strong>
+-      <div style={{ fontSize: 12, color: '#94a3b8', margin: '6px 0' }}>
+-        Nonce: <code>{file.nonceHex}</code> | AuthTag:{' '}
+-        <code>{file.authTagHex}</code>
++    <div className="bg-surface border border-sage-border rounded-xl p-4 shadow-xs">
++      <div className="flex items-center gap-2.5">
++        <div className="w-9 h-9 rounded-lg bg-sage-tint border border-sage-border flex items-center justify-center text-primary shrink-0">
++          <span className="material-symbols-outlined text-xl">description</span>
++        </div>
++        <p className="text-xs font-semibold text-text-dark min-w-0 truncate">
++          {file.originalName} ({file.sizeBytes} bytes)
++        </p>
++      </div>
++      <div className="mt-2.5 bg-canvas border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-text-secondary break-all leading-relaxed">
++        Nonce: {file.nonceHex} | AuthTag: {file.authTagHex}
+         <br />
+-        SHA-256: <code>{file.originalSha256}</code>
++        SHA-256: {file.originalSha256}
+       </div>
+       <button
+         type="button"
+         onClick={() => onDecrypt(file.id)}
+-        style={{ background: '#1e293b', border: '1px solid #334155' }}
++        className="mt-3 h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
+       >
+-        🔓 Dekripsi ChaCha20 &amp; Unduh File Asli
++        <span className="material-symbols-outlined text-base text-text-secondary">
++          lock_open
++        </span>
++        <span>Dekripsi ChaCha20 &amp; Unduh File Asli</span>
+       </button>
+     </div>
+   );
+diff --git a/client/src/features/files/components/FileUploadCard.tsx b/client/src/features/files/components/FileUploadCard.tsx
+index b9d8eb6..080241f 100644
+--- a/client/src/features/files/components/FileUploadCard.tsx
++++ b/client/src/features/files/components/FileUploadCard.tsx
+@@ -9,6 +9,8 @@ interface FileUploadCardProps {
+   loading: boolean;
+ }
+ 
++const labelCls = 'block text-[11px] font-medium text-text-secondary mb-1';
++
+ export function FileUploadCard({
+   passphrase,
+   onPassphraseChange,
+@@ -16,30 +18,37 @@ export function FileUploadCard({
+   loading,
+ }: FileUploadCardProps) {
+   return (
+-    <div
+-      style={{
+-        background: '#111827',
+-        padding: 20,
+-        borderRadius: 12,
+-        border: '1px solid #334155',
+-        marginBottom: 24,
+-      }}
+-    >
+-      <label>Passphrase Enkripsi / Dekripsi ChaCha20-Poly1305</label>
+-      <input
+-        value={passphrase}
+-        onChange={(e) => onPassphraseChange(e.target.value)}
+-        placeholder="Kunci rahasia file..."
+-      />
++    <div className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs space-y-3.5">
++      <div>
++        <label className={labelCls}>
++          Passphrase Enkripsi / Dekripsi ChaCha20-Poly1305
++        </label>
++        <input
++          value={passphrase}
++          onChange={(e) => onPassphraseChange(e.target.value)}
++          placeholder="Kunci rahasia file..."
++          className="w-full rounded-lg border border-sage-border bg-canvas px-3 py-2 text-xs text-text-dark placeholder-text-muted focus:border-primary focus:bg-surface focus:outline-none transition"
++        />
++      </div>
+ 
+-      <label style={{ display: 'block', marginTop: 10 }}>
+-        Pilih File Dokumen Bukti / Draf Skripsi untuk Dienkripsi
+-      </label>
+-      <input type="file" onChange={onFileUpload} disabled={loading} />
++      <div>
++        <label className={labelCls}>
++          Pilih File Dokumen Bukti / Draf Skripsi untuk Dienkripsi
++        </label>
++        <input
++          type="file"
++          onChange={onFileUpload}
++          disabled={loading}
++          className="block w-full text-xs text-text-secondary file:mr-3 file:h-8 file:px-3 file:rounded-lg file:border file:border-sage-border file:bg-surface file:text-xs file:text-text-dark hover:file:bg-canvas disabled:opacity-40"
++        />
++      </div>
+ 
+       {loading && (
+-        <p style={{ fontSize: 13, color: '#38bdf8', marginTop: 8 }}>
+-          ⏳ Sedang memproses enkripsi ChaCha20-Poly1305 di Server...
++        <p className="flex items-center gap-1.5 text-xs text-security-info">
++          <span className="material-symbols-outlined text-base">
++            hourglass_top
++          </span>
++          Sedang memproses enkripsi ChaCha20-Poly1305 di Server...
+         </p>
+       )}
+     </div>
+diff --git a/client/src/features/files/components/FilesView.tsx b/client/src/features/files/components/FilesView.tsx
+index a7edfbd..509c3bd 100644
+--- a/client/src/features/files/components/FilesView.tsx
++++ b/client/src/features/files/components/FilesView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardNav } from '@/features/dashboard';
++import { DashboardLayout, PageShell } from '@/features/dashboard';
+ import { useFiles } from '../hooks/useFiles';
+ import { FileItemCard } from './FileItemCard';
+ import { FileUploadCard } from './FileUploadCard';
+@@ -18,26 +18,13 @@ export function FilesView() {
+   } = useFiles();
+ 
+   return (
+-    <>
+-      <DashboardNav />
+-      <main
+-        style={{ maxWidth: 1020, margin: '0 auto', padding: '0 20px 48px' }}
++    <DashboardLayout>
++      <PageShell
++        title="Enkripsi Berkas dengan ChaCha20-Poly1305"
++        subtitle="Naskah & Berkas"
+       >
+-        <h1 style={{ marginBottom: 14 }}>
+-          📁 Enkripsi Berkas dengan ChaCha20-Poly1305
+-        </h1>
+-
+         {notice && (
+-          <div
+-            style={{
+-              padding: 12,
+-              borderRadius: 8,
+-              background: '#1e293b',
+-              border: '1px solid #38bdf8',
+-              marginBottom: 16,
+-              color: '#e2e8f0',
+-            }}
+-          >
++          <div className="p-3 rounded-lg bg-surface border border-sage-border text-security-info text-xs">
+             {notice}
+           </div>
+         )}
+@@ -49,14 +36,14 @@ export function FilesView() {
+           loading={loading}
+         />
+ 
+-        <h2 style={{ marginBottom: 12 }}>
++        <h2 className="text-xs font-semibold text-text-dark">
+           Daftar Berkas Terenkripsi di Server ({files.length})
+         </h2>
+ 
+         {files.map((f) => (
+           <FileItemCard key={f.id} file={f} onDecrypt={handleDecryptFile} />
+         ))}
+-      </main>
+-    </>
++      </PageShell>
++    </DashboardLayout>
+   );
+ }
+-- 
+2.43.0
+
+
+From 0e36cb98c0d15629c177ea16e53f6e9a7b2063d1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 8 Nov 2026 10:00:13 +0000
+Subject: [PATCH 6/7] refactor(messages): migrasi ke DashboardLayout + restyle
+ sage (sementara, akan diganti vault)
+
+---
+ .../components/MessageEncryptForm.tsx         | 148 ++++++++++--------
+ .../messages/components/MessageItemCard.tsx   |  67 +++-----
+ .../messages/components/MessagesView.tsx      |  31 ++--
+ 3 files changed, 112 insertions(+), 134 deletions(-)
+
+diff --git a/client/src/features/messages/components/MessageEncryptForm.tsx b/client/src/features/messages/components/MessageEncryptForm.tsx
+index 79bd365..c5f768d 100644
+--- a/client/src/features/messages/components/MessageEncryptForm.tsx
++++ b/client/src/features/messages/components/MessageEncryptForm.tsx
+@@ -19,6 +19,10 @@ interface MessageEncryptFormProps {
+   onSubmit: (e: React.FormEvent) => void;
+ }
+ 
++const labelCls = 'block text-[11px] font-medium text-text-secondary mb-1';
++const inputCls =
++  'w-full rounded-lg border border-sage-border bg-canvas px-3 py-2 text-xs text-text-dark placeholder-text-muted focus:border-primary focus:bg-surface focus:outline-none transition';
++
+ export function MessageEncryptForm({
+   title,
+   onTitleChange,
+@@ -37,81 +41,99 @@ export function MessageEncryptForm({
+   return (
+     <form
+       onSubmit={onSubmit}
+-      style={{
+-        background: '#111827',
+-        padding: 20,
+-        borderRadius: 12,
+-        border: '1px solid #334155',
+-        marginBottom: 24,
+-      }}
++      className="bg-surface border border-sage-border rounded-xl p-5 shadow-xs space-y-3.5"
+     >
+-      <label>Judul Catatan / Dokumen Bimbingan</label>
+-      <input
+-        value={title}
+-        onChange={(e) => onTitleChange(e.target.value)}
+-        required
+-      />
++      <div>
++        <label className={labelCls}>Judul Catatan / Dokumen Bimbingan</label>
++        <input
++          value={title}
++          onChange={(e) => onTitleChange(e.target.value)}
++          required
++          className={inputCls}
++        />
++      </div>
+ 
+-      <label>Identitas Pengirim (Dienkripsi AES-256-GCM di Database)</label>
+-      <input
+-        value={sender}
+-        onChange={(e) => onSenderChange(e.target.value)}
+-        required
+-      />
++      <div>
++        <label className={labelCls}>
++          Identitas Pengirim (Dienkripsi AES-256-GCM di Database)
++        </label>
++        <input
++          value={sender}
++          onChange={(e) => onSenderChange(e.target.value)}
++          required
++          className={inputCls}
++        />
++      </div>
+ 
+-      <label>Isi Pesan Rahasia (Plaintext)</label>
+-      <textarea
+-        value={plaintext}
+-        onChange={(e) => onPlaintextChange(e.target.value)}
+-        placeholder="Ketik catatan bimbingan atau draf naskah..."
+-        rows={4}
+-        required
+-      />
++      <div>
++        <label className={labelCls}>Isi Pesan Rahasia (Plaintext)</label>
++        <textarea
++          value={plaintext}
++          onChange={(e) => onPlaintextChange(e.target.value)}
++          placeholder="Ketik catatan bimbingan atau draf naskah..."
++          rows={4}
++          required
++          className={`${inputCls} resize-none leading-relaxed`}
++        />
++      </div>
+ 
+-      <label>Passphrase Super Enkripsi (Kunci Bersama)</label>
+-      <input
+-        value={passphrase}
+-        onChange={(e) => onPassphraseChange(e.target.value)}
+-        required
+-      />
++      <div>
++        <label className={labelCls}>
++          Passphrase Super Enkripsi (Kunci Bersama)
++        </label>
++        <input
++          value={passphrase}
++          onChange={(e) => onPassphraseChange(e.target.value)}
++          required
++          className={inputCls}
++        />
++      </div>
+ 
+-      <label>Mode Blok AES</label>
+-      <select
+-        value={mode}
+-        onChange={(e) => onModeChange(e.target.value as 'CBC' | 'ECB')}
+-      >
+-        <option value="CBC">AES-256-CBC (Cipher Block Chaining)</option>
+-        <option value="ECB">AES-256-ECB (Electronic Codebook)</option>
+-      </select>
++      <div>
++        <label className={labelCls}>Mode Blok AES</label>
++        <select
++          value={mode}
++          onChange={(e) => onModeChange(e.target.value as 'CBC' | 'ECB')}
++          className={inputCls}
++        >
++          <option value="CBC">AES-256-CBC (Cipher Block Chaining)</option>
++          <option value="ECB">AES-256-ECB (Electronic Codebook)</option>
++        </select>
++      </div>
+ 
+-      <button type="submit" disabled={loading}>
+-        {loading
+-          ? 'Memproses Super Enkripsi...'
+-          : '🔒 Proses Super Enkripsi & Simpan ke Server'}
++      <button
++        type="submit"
++        disabled={loading}
++        className="h-8 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-medium flex items-center gap-1.5 shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
++      >
++        <span className="material-symbols-outlined text-base">lock</span>
++        <span>
++          {loading
++            ? 'Memproses Super Enkripsi...'
++            : 'Proses Super Enkripsi & Simpan ke Server'}
++        </span>
+       </button>
+ 
+       {lastStages && (
+-        <div
+-          style={{
+-            marginTop: 16,
+-            padding: 12,
+-            background: '#070a12',
+-            borderRadius: 8,
+-            border: '1px solid #1e293b',
+-            fontSize: 12,
+-          }}
+-        >
+-          <strong style={{ color: '#34d399' }}>
++        <div className="p-3 bg-canvas border border-sage-border rounded-lg text-[11px] space-y-1.5">
++          <p className="font-semibold text-primary">
+             Tahapan Super Enkripsi di Server:
+-          </strong>
+-          <div style={{ marginTop: 6, color: '#cbd5e1' }}>
+-            1. Vigenère (Hex): <code>{lastStages.stage1VigenereHex}</code>
++          </p>
++          <div className="text-text-secondary break-all">
++            1. Vigenère (Hex):{' '}
++            <code className="font-mono text-text-dark">
++              {lastStages.stage1VigenereHex}
++            </code>
+           </div>
+-          <div style={{ marginTop: 4, color: '#cbd5e1' }}>
+-            2. Vernam XOR (Hex): <code>{lastStages.stage2VernamHex}</code>
++          <div className="text-text-secondary break-all">
++            2. Vernam XOR (Hex):{' '}
++            <code className="font-mono text-text-dark">
++              {lastStages.stage2VernamHex}
++            </code>
+           </div>
+-          <div style={{ marginTop: 4, color: '#38bdf8' }}>
+-            3. AES-256 Final Payload: <code>{lastStages.combinedPayload}</code>
++          <div className="text-security-info break-all">
++            3. AES-256 Final Payload:{' '}
++            <code className="font-mono">{lastStages.combinedPayload}</code>
+           </div>
+         </div>
+       )}
+diff --git a/client/src/features/messages/components/MessageItemCard.tsx b/client/src/features/messages/components/MessageItemCard.tsx
+index 727cf9c..81dc4d0 100644
+--- a/client/src/features/messages/components/MessageItemCard.tsx
++++ b/client/src/features/messages/components/MessageItemCard.tsx
+@@ -17,77 +17,46 @@ export function MessageItemCard({
+   onDelete,
+ }: MessageItemCardProps) {
+   return (
+-    <div
+-      style={{
+-        background: '#111827',
+-        padding: 16,
+-        borderRadius: 10,
+-        border: '1px solid #334155',
+-        marginBottom: 12,
+-      }}
+-    >
+-      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+-        <strong>
++    <div className="bg-surface border border-sage-border rounded-xl p-4 shadow-xs">
++      <div className="flex justify-between flex-wrap gap-1.5">
++        <p className="text-xs font-semibold text-text-dark">
+           #{message.id} — {message.title} ({message.mode})
+-        </strong>
+-        <span style={{ fontSize: 12.5, color: '#94a3b8' }}>
+-          Pengirim: <strong style={{ color: '#e2e8f0' }}>{message.sender}</strong>
++        </p>
++        <span className="text-[11px] text-text-secondary">
++          Pengirim:{' '}
++          <strong className="text-text-dark">{message.sender}</strong>
+         </span>
+       </div>
+ 
+-      <pre
+-        style={{
+-          background: '#070a12',
+-          padding: 10,
+-          borderRadius: 8,
+-          overflowX: 'auto',
+-          color: '#38bdf8',
+-          margin: '8px 0',
+-          fontSize: 12,
+-        }}
+-      >
++      <pre className="mt-2 bg-canvas border border-sage-border rounded-lg p-2.5 font-mono text-[11px] text-security-info overflow-x-auto">
+         {message.superCiphertextPayload}
+       </pre>
+ 
+-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
++      <div className="mt-2.5 flex gap-2 items-center flex-wrap">
+         <button
+           type="button"
+           onClick={() => onDecrypt(message.id)}
+-          style={{ background: '#1e293b', border: '1px solid #334155', color: '#f1f5f9', cursor: 'pointer', padding: '6px 12px', borderRadius: 6 }}
++          className="h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
+         >
+-          Dekripsi Pesan
++          <span className="material-symbols-outlined text-base text-text-secondary">
++            lock_open
++          </span>
++          <span>Dekripsi Pesan</span>
+         </button>
+         {onDelete && (
+           <button
+             type="button"
+             onClick={() => onDelete(message.id)}
+-            style={{
+-              background: 'transparent',
+-              border: '1px solid #ef4444',
+-              color: '#f87171',
+-              cursor: 'pointer',
+-              padding: '6px 12px',
+-              borderRadius: 6,
+-              fontSize: 12,
+-            }}
++            className="h-8 px-3 rounded-lg border border-red-200 bg-surface hover:bg-red-50 text-security-danger text-xs font-medium flex items-center gap-1.5 transition"
+           >
+-            Hapus Pesan
++            <span className="material-symbols-outlined text-base">delete</span>
++            <span>Hapus Pesan</span>
+           </button>
+         )}
+       </div>
+ 
+       {decryptedText && (
+-        <div
+-          style={{
+-            marginTop: 10,
+-            padding: 10,
+-            background: 'rgba(16,185,129,0.1)',
+-            borderRadius: 8,
+-            border: '1px solid #10b981',
+-            color: '#34d399',
+-            fontSize: 13,
+-          }}
+-        >
++        <div className="mt-2.5 p-2.5 rounded-lg bg-sage-tint border border-sage-border text-primary text-xs">
+           Plaintext Hasil Dekripsi: <strong>{decryptedText}</strong>
+         </div>
+       )}
+diff --git a/client/src/features/messages/components/MessagesView.tsx b/client/src/features/messages/components/MessagesView.tsx
+index f575f68..131fb73 100644
+--- a/client/src/features/messages/components/MessagesView.tsx
++++ b/client/src/features/messages/components/MessagesView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardNav } from '@/features/dashboard';
++import { DashboardLayout, PageShell } from '@/features/dashboard';
+ import { useMessages } from '../hooks/useMessages';
+ import { MessageEncryptForm } from './MessageEncryptForm';
+ import { MessageItemCard } from './MessageItemCard';
+@@ -29,26 +29,13 @@ export function MessagesView() {
+   } = useMessages();
+ 
+   return (
+-    <>
+-      <DashboardNav />
+-      <main
+-        style={{ maxWidth: 1020, margin: '0 auto', padding: '0 20px 48px' }}
++    <DashboardLayout>
++      <PageShell
++        title="Super Enkripsi Pesan Teks"
++        subtitle="Vigenère + Vernam + AES-256"
+       >
+-        <h1 style={{ marginBottom: 14 }}>
+-          ✉️ Super Enkripsi Pesan Teks (Vigenère + Vernam + AES-256)
+-        </h1>
+-
+         {errorMsg && (
+-          <div
+-            style={{
+-              padding: 12,
+-              borderRadius: 8,
+-              background: 'rgba(239,68,68,0.15)',
+-              border: '1px solid #ef4444',
+-              color: '#fca5a5',
+-              marginBottom: 16,
+-            }}
+-          >
++          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+             {errorMsg}
+           </div>
+         )}
+@@ -69,7 +56,7 @@ export function MessagesView() {
+           onSubmit={handleEncrypt}
+         />
+ 
+-        <h2 style={{ marginBottom: 12 }}>
++        <h2 className="text-xs font-semibold text-text-dark">
+           Daftar Pesan Terenkripsi di Server ({messages.length})
+         </h2>
+ 
+@@ -82,7 +69,7 @@ export function MessagesView() {
+             onDelete={handleDelete}
+           />
+         ))}
+-      </main>
+-    </>
++      </PageShell>
++    </DashboardLayout>
+   );
+ }
+-- 
+2.43.0
+
+
+From fc0519b55f92f0ad36ec7eec84f33a1c5cce0ac8 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 8 Nov 2026 10:00:57 +0000
+Subject: [PATCH 7/7] refactor(dashboard): angkat DashboardLayout ke
+ app/dashboard/layout.tsx dan hapus DashboardNav lama
+
+---
+ client/src/app/dashboard/layout.tsx           | 10 ++
+ client/src/components/DashboardNav.tsx        |  1 -
+ .../blockchain/components/BlockchainView.tsx  | 58 ++++++-----
+ .../dashboard/components/DashboardNav.tsx     | 95 -------------------
+ .../components/DashboardOverview.tsx          |  7 +-
+ client/src/features/dashboard/index.ts        |  1 -
+ .../components/DbInspectorView.tsx            | 64 ++++++-------
+ .../features/files/components/FilesView.tsx   | 48 +++++-----
+ .../messages/components/MessagesView.tsx      | 78 ++++++++-------
+ .../features/stego/components/StegoView.tsx   | 86 ++++++++---------
+ 10 files changed, 173 insertions(+), 275 deletions(-)
+ create mode 100644 client/src/app/dashboard/layout.tsx
+ delete mode 100644 client/src/components/DashboardNav.tsx
+ delete mode 100644 client/src/features/dashboard/components/DashboardNav.tsx
+
+diff --git a/client/src/app/dashboard/layout.tsx b/client/src/app/dashboard/layout.tsx
+new file mode 100644
+index 0000000..393432e
+--- /dev/null
++++ b/client/src/app/dashboard/layout.tsx
+@@ -0,0 +1,10 @@
++import React from 'react';
++import { DashboardLayout } from '@/features/dashboard';
++
++export default function DashboardRootLayout({
++  children,
++}: {
++  children: React.ReactNode;
++}) {
++  return <DashboardLayout>{children}</DashboardLayout>;
++}
+diff --git a/client/src/components/DashboardNav.tsx b/client/src/components/DashboardNav.tsx
+deleted file mode 100644
+index b03210d..0000000
+--- a/client/src/components/DashboardNav.tsx
++++ /dev/null
+@@ -1 +0,0 @@
+-export { DashboardNav } from '@/features/dashboard';
+diff --git a/client/src/features/blockchain/components/BlockchainView.tsx b/client/src/features/blockchain/components/BlockchainView.tsx
+index 9b2748a..bb0809c 100644
+--- a/client/src/features/blockchain/components/BlockchainView.tsx
++++ b/client/src/features/blockchain/components/BlockchainView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardLayout, PageShell } from '@/features/dashboard';
++import { PageShell } from '@/features/dashboard';
+ import { useBlockchain } from '../hooks/useBlockchain';
+ import { BlockCard } from './BlockCard';
+ import { BlockchainControls } from './BlockchainControls';
+@@ -12,38 +12,36 @@ export function BlockchainView() {
+     useBlockchain();
+ 
+   return (
+-    <DashboardLayout>
+-      <PageShell
+-        title="Buku Besar Blockchain SHA-256"
+-        subtitle="Chain of Custody"
+-      >
+-        <BlockchainControls
+-          loading={loading}
+-          onVerify={loadChain}
+-          onTamper={() => tamperBlock(1)}
+-          onRestore={restoreChain}
+-        />
++    <PageShell
++      title="Buku Besar Blockchain SHA-256"
++      subtitle="Chain of Custody"
++    >
++      <BlockchainControls
++        loading={loading}
++        onVerify={loadChain}
++        onTamper={() => tamperBlock(1)}
++        onRestore={restoreChain}
++      />
+ 
+-        {errorMsg && (
+-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+-            {errorMsg}
+-          </div>
+-        )}
++      {errorMsg && (
++        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
++          {errorMsg}
++        </div>
++      )}
+ 
+-        <BlockchainStatusBanner validation={data?.validation} />
++      <BlockchainStatusBanner validation={data?.validation} />
+ 
+-        <h2 className="text-xs font-semibold text-text-dark">
+-          Daftar Blok Berantai ({data?.blocks?.length || 0})
+-        </h2>
++      <h2 className="text-xs font-semibold text-text-dark">
++        Daftar Blok Berantai ({data?.blocks?.length || 0})
++      </h2>
+ 
+-        {data?.blocks?.map((b, idx) => (
+-          <BlockCard
+-            key={b.index}
+-            block={b}
+-            detail={data.validation?.details?.[idx]}
+-          />
+-        ))}
+-      </PageShell>
+-    </DashboardLayout>
++      {data?.blocks?.map((b, idx) => (
++        <BlockCard
++          key={b.index}
++          block={b}
++          detail={data.validation?.details?.[idx]}
++        />
++      ))}
++    </PageShell>
+   );
+ }
+diff --git a/client/src/features/dashboard/components/DashboardNav.tsx b/client/src/features/dashboard/components/DashboardNav.tsx
+deleted file mode 100644
+index 50f677b..0000000
+--- a/client/src/features/dashboard/components/DashboardNav.tsx
++++ /dev/null
+@@ -1,95 +0,0 @@
+-'use client';
+-
+-import React from 'react';
+-import { useCurrentUser } from '../hooks/useCurrentUser';
+-
+-const NAV_ITEMS = [
+-  { href: '/dashboard', label: '🏠 Ringkasan' },
+-  { href: '/dashboard/messages', label: '✉️ Pesan Super Enkripsi' },
+-  { href: '/dashboard/files', label: '📁 File ChaCha20' },
+-  { href: '/dashboard/stego', label: '🖼️ Steganografi LSB' },
+-  { href: '/dashboard/db-view', label: '🗄️ DB Inspector' },
+-  { href: '/dashboard/blockchain', label: '⛓️ Blockchain SHA-256' },
+-];
+-
+-export function DashboardNav() {
+-  const { user, logout } = useCurrentUser();
+-
+-  return (
+-    <header
+-      style={{
+-        background: '#111827',
+-        borderBottom: '1px solid #334155',
+-        padding: '12px 24px',
+-        marginBottom: 24,
+-      }}
+-    >
+-      <div
+-        style={{
+-          maxWidth: 1100,
+-          margin: '0 auto',
+-          display: 'flex',
+-          justifyContent: 'space-between',
+-          alignItems: 'center',
+-          flexWrap: 'wrap',
+-          gap: 12,
+-        }}
+-      >
+-        <div>
+-          <strong style={{ fontSize: 16, color: '#38bdf8' }}>
+-            🛡️ SkripsiChat — Ruang Bimbingan Terenkripsi
+-          </strong>
+-          {user && (
+-            <span style={{ fontSize: 12.5, color: '#94a3b8', marginLeft: 10 }}>
+-              Login sebagai:{' '}
+-              <strong style={{ color: '#fff' }}>@{user.username}</strong> (
+-              {user.fullName}) •{' '}
+-              <span style={{ color: '#34d399' }}>
+-                {user.role?.toUpperCase()}
+-              </span>
+-            </span>
+-          )}
+-        </div>
+-
+-        <div
+-          style={{
+-            display: 'flex',
+-            gap: 8,
+-            flexWrap: 'wrap',
+-            alignItems: 'center',
+-          }}
+-        >
+-          {NAV_ITEMS.map((item) => (
+-            <a
+-              key={item.href}
+-              href={item.href}
+-              style={{
+-                padding: '6px 11px',
+-                borderRadius: 8,
+-                background: '#1e293b',
+-                border: '1px solid #334155',
+-                color: '#e2e8f0',
+-                textDecoration: 'none',
+-                fontSize: 12.5,
+-                fontWeight: 600,
+-              }}
+-            >
+-              {item.label}
+-            </a>
+-          ))}
+-          <button
+-            type="button"
+-            onClick={logout}
+-            style={{
+-              background: '#dc2626',
+-              padding: '6px 12px',
+-              fontSize: 12.5,
+-            }}
+-          >
+-            Keluar
+-          </button>
+-        </div>
+-      </div>
+-    </header>
+-  );
+-}
+diff --git a/client/src/features/dashboard/components/DashboardOverview.tsx b/client/src/features/dashboard/components/DashboardOverview.tsx
+index a18a3bc..02169da 100644
+--- a/client/src/features/dashboard/components/DashboardOverview.tsx
++++ b/client/src/features/dashboard/components/DashboardOverview.tsx
+@@ -1,13 +1,8 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardLayout } from './DashboardLayout';
+ import { DashboardWorkspace } from './DashboardWorkspace';
+ 
+ export function DashboardOverview() {
+-  return (
+-    <DashboardLayout>
+-      <DashboardWorkspace />
+-    </DashboardLayout>
+-  );
++  return <DashboardWorkspace />;
+ }
+diff --git a/client/src/features/dashboard/index.ts b/client/src/features/dashboard/index.ts
+index a35689e..398332e 100644
+--- a/client/src/features/dashboard/index.ts
++++ b/client/src/features/dashboard/index.ts
+@@ -4,7 +4,6 @@ export * from './components/DashboardHeader';
+ export * from './components/DashboardSidebar';
+ export * from './components/DashboardWorkspace';
+ export * from './components/DashboardOverview';
+-export * from './components/DashboardNav';
+ export * from './components/ChatStream';
+ export * from './components/ChatInputDock';
+ export * from './hooks/useCurrentUser';
+diff --git a/client/src/features/db-inspector/components/DbInspectorView.tsx b/client/src/features/db-inspector/components/DbInspectorView.tsx
+index b0963f2..ec15872 100644
+--- a/client/src/features/db-inspector/components/DbInspectorView.tsx
++++ b/client/src/features/db-inspector/components/DbInspectorView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardLayout, PageShell } from '@/features/dashboard';
++import { PageShell } from '@/features/dashboard';
+ import { useDbInspector } from '../hooks/useDbInspector';
+ import { DbUserCard } from './DbUserCard';
+ 
+@@ -9,39 +9,37 @@ export function DbInspectorView() {
+   const { data, loading, errorMsg, reload } = useDbInspector();
+ 
+   return (
+-    <DashboardLayout>
+-      <PageShell
+-        title="Inspector Enkripsi Database"
+-        subtitle="Database-at-Rest AES-256-GCM"
+-        actions={
+-          <button
+-            type="button"
+-            onClick={reload}
+-            className="h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
+-          >
+-            <span className="material-symbols-outlined text-base text-text-secondary">
+-              refresh
+-            </span>
+-            <span>Refresh DB</span>
+-          </button>
+-        }
+-      >
+-        {errorMsg && (
+-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+-            {errorMsg}
+-          </div>
+-        )}
++    <PageShell
++      title="Inspector Enkripsi Database"
++      subtitle="Database-at-Rest AES-256-GCM"
++      actions={
++        <button
++          type="button"
++          onClick={reload}
++          className="h-8 px-3 rounded-lg border border-sage-border bg-surface hover:bg-canvas text-text-dark text-xs font-medium flex items-center gap-1.5 transition"
++        >
++          <span className="material-symbols-outlined text-base text-text-secondary">
++            refresh
++          </span>
++          <span>Refresh DB</span>
++        </button>
++      }
++    >
++      {errorMsg && (
++        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
++          {errorMsg}
++        </div>
++      )}
+ 
+-        {loading && (
+-          <p className="text-xs text-text-secondary">
+-            Memuat perbandingan tabel database dari Server...
+-          </p>
+-        )}
++      {loading && (
++        <p className="text-xs text-text-secondary">
++          Memuat perbandingan tabel database dari Server...
++        </p>
++      )}
+ 
+-        {data?.usersTable?.map((user) => (
+-          <DbUserCard key={user.id} user={user} />
+-        ))}
+-      </PageShell>
+-    </DashboardLayout>
++      {data?.usersTable?.map((user) => (
++        <DbUserCard key={user.id} user={user} />
++      ))}
++    </PageShell>
+   );
+ }
+diff --git a/client/src/features/files/components/FilesView.tsx b/client/src/features/files/components/FilesView.tsx
+index 509c3bd..8028311 100644
+--- a/client/src/features/files/components/FilesView.tsx
++++ b/client/src/features/files/components/FilesView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardLayout, PageShell } from '@/features/dashboard';
++import { PageShell } from '@/features/dashboard';
+ import { useFiles } from '../hooks/useFiles';
+ import { FileItemCard } from './FileItemCard';
+ import { FileUploadCard } from './FileUploadCard';
+@@ -18,32 +18,30 @@ export function FilesView() {
+   } = useFiles();
+ 
+   return (
+-    <DashboardLayout>
+-      <PageShell
+-        title="Enkripsi Berkas dengan ChaCha20-Poly1305"
+-        subtitle="Naskah & Berkas"
+-      >
+-        {notice && (
+-          <div className="p-3 rounded-lg bg-surface border border-sage-border text-security-info text-xs">
+-            {notice}
+-          </div>
+-        )}
++    <PageShell
++      title="Enkripsi Berkas dengan ChaCha20-Poly1305"
++      subtitle="Naskah & Berkas"
++    >
++      {notice && (
++        <div className="p-3 rounded-lg bg-surface border border-sage-border text-security-info text-xs">
++          {notice}
++        </div>
++      )}
+ 
+-        <FileUploadCard
+-          passphrase={passphrase}
+-          onPassphraseChange={setPassphrase}
+-          onFileUpload={handleFileUpload}
+-          loading={loading}
+-        />
++      <FileUploadCard
++        passphrase={passphrase}
++        onPassphraseChange={setPassphrase}
++        onFileUpload={handleFileUpload}
++        loading={loading}
++      />
+ 
+-        <h2 className="text-xs font-semibold text-text-dark">
+-          Daftar Berkas Terenkripsi di Server ({files.length})
+-        </h2>
++      <h2 className="text-xs font-semibold text-text-dark">
++        Daftar Berkas Terenkripsi di Server ({files.length})
++      </h2>
+ 
+-        {files.map((f) => (
+-          <FileItemCard key={f.id} file={f} onDecrypt={handleDecryptFile} />
+-        ))}
+-      </PageShell>
+-    </DashboardLayout>
++      {files.map((f) => (
++        <FileItemCard key={f.id} file={f} onDecrypt={handleDecryptFile} />
++      ))}
++    </PageShell>
+   );
+ }
+diff --git a/client/src/features/messages/components/MessagesView.tsx b/client/src/features/messages/components/MessagesView.tsx
+index 131fb73..d1ca8ce 100644
+--- a/client/src/features/messages/components/MessagesView.tsx
++++ b/client/src/features/messages/components/MessagesView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardLayout, PageShell } from '@/features/dashboard';
++import { PageShell } from '@/features/dashboard';
+ import { useMessages } from '../hooks/useMessages';
+ import { MessageEncryptForm } from './MessageEncryptForm';
+ import { MessageItemCard } from './MessageItemCard';
+@@ -29,47 +29,45 @@ export function MessagesView() {
+   } = useMessages();
+ 
+   return (
+-    <DashboardLayout>
+-      <PageShell
+-        title="Super Enkripsi Pesan Teks"
+-        subtitle="Vigenère + Vernam + AES-256"
+-      >
+-        {errorMsg && (
+-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+-            {errorMsg}
+-          </div>
+-        )}
++    <PageShell
++      title="Super Enkripsi Pesan Teks"
++      subtitle="Vigenère + Vernam + AES-256"
++    >
++      {errorMsg && (
++        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
++          {errorMsg}
++        </div>
++      )}
+ 
+-        <MessageEncryptForm
+-          title={title}
+-          onTitleChange={setTitle}
+-          sender={sender}
+-          onSenderChange={setSender}
+-          plaintext={plaintext}
+-          onPlaintextChange={setPlaintext}
+-          passphrase={passphrase}
+-          onPassphraseChange={setPassphrase}
+-          mode={mode}
+-          onModeChange={setMode}
+-          loading={loading}
+-          lastStages={lastStages}
+-          onSubmit={handleEncrypt}
+-        />
++      <MessageEncryptForm
++        title={title}
++        onTitleChange={setTitle}
++        sender={sender}
++        onSenderChange={setSender}
++        plaintext={plaintext}
++        onPlaintextChange={setPlaintext}
++        passphrase={passphrase}
++        onPassphraseChange={setPassphrase}
++        mode={mode}
++        onModeChange={setMode}
++        loading={loading}
++        lastStages={lastStages}
++        onSubmit={handleEncrypt}
++      />
+ 
+-        <h2 className="text-xs font-semibold text-text-dark">
+-          Daftar Pesan Terenkripsi di Server ({messages.length})
+-        </h2>
++      <h2 className="text-xs font-semibold text-text-dark">
++        Daftar Pesan Terenkripsi di Server ({messages.length})
++      </h2>
+ 
+-        {messages.map((m) => (
+-          <MessageItemCard
+-            key={m.id}
+-            message={m}
+-            decryptedText={decryptedMap[m.id]}
+-            onDecrypt={handleDecrypt}
+-            onDelete={handleDelete}
+-          />
+-        ))}
+-      </PageShell>
+-    </DashboardLayout>
++      {messages.map((m) => (
++        <MessageItemCard
++          key={m.id}
++          message={m}
++          decryptedText={decryptedMap[m.id]}
++          onDecrypt={handleDecrypt}
++          onDelete={handleDelete}
++        />
++      ))}
++    </PageShell>
+   );
+ }
+diff --git a/client/src/features/stego/components/StegoView.tsx b/client/src/features/stego/components/StegoView.tsx
+index 765a406..c0ae9f1 100644
+--- a/client/src/features/stego/components/StegoView.tsx
++++ b/client/src/features/stego/components/StegoView.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+ 
+ import React from 'react';
+-import { DashboardLayout, PageShell } from '@/features/dashboard';
++import { PageShell } from '@/features/dashboard';
+ import { useStego } from '../hooks/useStego';
+ import { StegoEmbedForm } from './StegoEmbedForm';
+ import { StegoGalleryItem } from './StegoGalleryItem';
+@@ -24,52 +24,50 @@ export function StegoView() {
+   } = useStego();
+ 
+   return (
+-    <DashboardLayout>
+-      <PageShell
+-        title="Studio Steganografi Gambar PNG"
+-        subtitle="LSB Embedding"
+-      >
+-        {errorMsg && (
+-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
+-            {errorMsg}
+-          </div>
+-        )}
++    <PageShell
++      title="Studio Steganografi Gambar PNG"
++      subtitle="LSB Embedding"
++    >
++      {errorMsg && (
++        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-security-danger text-xs">
++          {errorMsg}
++        </div>
++      )}
+ 
+-        <StegoEmbedForm
+-          title={title}
+-          onTitleChange={setTitle}
+-          secretMessage={secretMessage}
+-          onSecretMessageChange={setSecretMessage}
+-          passkey={passkey}
+-          onPasskeyChange={setPasskey}
+-          onSelectCover={handleSelectCover}
+-          loading={loading}
+-          onSubmit={handleEmbed}
+-        />
++      <StegoEmbedForm
++        title={title}
++        onTitleChange={setTitle}
++        secretMessage={secretMessage}
++        onSecretMessageChange={setSecretMessage}
++        passkey={passkey}
++        onPasskeyChange={setPasskey}
++        onSelectCover={handleSelectCover}
++        loading={loading}
++        onSubmit={handleEmbed}
++      />
+ 
+-        {extractedText && (
+-          <div className="p-3.5 rounded-lg bg-sage-tint border border-sage-border text-primary text-xs flex items-start gap-2">
+-            <span className="material-symbols-outlined text-lg shrink-0">
+-              check_circle
+-            </span>
+-            <span>
+-              Pesan Rahasia Terekstrak: <strong>{extractedText}</strong>
+-            </span>
+-          </div>
+-        )}
++      {extractedText && (
++        <div className="p-3.5 rounded-lg bg-sage-tint border border-sage-border text-primary text-xs flex items-start gap-2">
++          <span className="material-symbols-outlined text-lg shrink-0">
++            check_circle
++          </span>
++          <span>
++            Pesan Rahasia Terekstrak: <strong>{extractedText}</strong>
++          </span>
++        </div>
++      )}
+ 
+-        <h2 className="text-xs font-semibold text-text-dark">
+-          Galeri Citra Steganografi di Server ({gallery.length})
+-        </h2>
++      <h2 className="text-xs font-semibold text-text-dark">
++        Galeri Citra Steganografi di Server ({gallery.length})
++      </h2>
+ 
+-        {gallery.map((item) => (
+-          <StegoGalleryItem
+-            key={item.id}
+-            item={item}
+-            onExtract={handleExtract}
+-          />
+-        ))}
+-      </PageShell>
+-    </DashboardLayout>
++      {gallery.map((item) => (
++        <StegoGalleryItem
++          key={item.id}
++          item={item}
++          onExtract={handleExtract}
++        />
++      ))}
++    </PageShell>
+   );
+ }
+-- 
+2.43.0
