@@ -1,5 +1,14 @@
 import type { AppRole } from '../constants/navigation';
 
+import type { ImportantCategory } from '../types/dashboard.types';
+
+export const CATEGORY_LABEL: Record<ImportantCategory, string> = {
+  ACC: 'ACC',
+  REVISI: 'Revisi',
+  JADWAL_SIDANG: 'Jadwal Sidang',
+  LAINNYA: 'Lainnya',
+};
+
 export function getInitials(name?: string): string {
   if (!name) return 'SC';
   const parts = name.trim().split(/\s+/);
@@ -21,3 +30,4 @@ export function formatRole(role?: string): string {
   if (r === 'admin') return 'Administrator';
   return 'Mahasiswa';
 }
+

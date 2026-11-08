@@ -84,3 +84,13 @@ export async function apiRequest<T = any>(
   }
   return data as T;
 }
+export const TOKEN_KEY = 'skripsichat_token';
+
+/** Dikirim ke window saat sesi habis/idle-lock di halaman dashboard (ditampilkan sebagai banner). */
+export const SESSION_EXPIRED_EVENT = 'skripsichat:session-expired';
+if (window.location.pathname !== '/') window.location.href = '/';
+if (window.location.pathname.startsWith('/dashboard')) {
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: data?.error }));
+} else if (window.location.pathname !== '/') {
+  window.location.href = '/';
+}

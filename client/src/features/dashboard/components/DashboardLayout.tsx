@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardSidebar } from './DashboardSidebar';
 import { ContextSecurityPanel } from './ContextSecurityPanel';
+import { SessionExpiredBanner } from './SessionExpiredBanner';
 import { ToastProvider } from '@/components/ui';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { canAccess, ROLE_HOME } from '../constants/navigation';
@@ -33,7 +34,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="skripsichat-app bg-canvas text-text-dark font-sans h-screen w-screen overflow-hidden flex flex-col antialiased selection:bg-sage-tint selection:text-primary">
         {/* 1. Header Global */}
         <DashboardHeader contextOpen={contextOpen} onToggleContext={() => setContextOpen((v) => !v)} />
-
+          <SessionExpiredBanner />
         {/* 2. Sidebar kiri + konten tengah; panel kanan opsional (tertutup default, dibuka dari header) */}
         <div className="flex flex-1 min-h-0 w-full overflow-hidden">
           <DashboardSidebar />

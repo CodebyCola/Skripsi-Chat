@@ -12,6 +12,12 @@ import { db } from '../database/connection.ts';
 import { KeysService } from './keys.service.ts';
 import { AuditService } from './audit.service.ts';
 import { AppError, ErrorCodes } from '../config/errors.ts';
+import { AppError, ErrorCodes } from '../config/errors.ts';
+import { ChatService } from './chat.service.ts';
+import type { Session } from './session.service.ts';
+
+const CATEGORIES = ['ACC', 'REVISI', 'JADWAL_SIDANG', 'LAINNYA'] as const;
+
 
 export interface ImportantMessageRecord {
   id: number;
@@ -101,6 +107,49 @@ export class VaultService {
       markedBy,
       markedAt: nowIso,
     };
+  }
+
+  /**
+   * Ref: FR-VAULT-01, FR-AUTH-08 — versi berbasis sesi.
+   * Hanya dosen peserta percakapan; `markedBy` = pemilik sesi; isi pesan dibaca &
+   * didekripsi server dari chat (bukan dari body klien).
+   */
+  static markImportantAs(
+    session: Session,
+    params: { convId: number; messageId: number; category?: string }
+  ): ImportantMessageRecord {
+    if (session.role !== 'DOSEN_PEMBIMBING') {
+      throw new AppError(
+        ErrorCodes.ERR_FORBIDDEN,
+        'Hanya dosen pembimbing yang dapat menandai pesan penting',
+        403
+      );
+    }
+    const category = (params.category || 'ACC') as ImportantMessageRecord['category'];
+    if (!CATEGORIES.includes(category)) {
+      throw new AppError(ErrorCodes.ERR_AUTH_INVALID, 'Kategori pesan penting tidak valid', 400);
+    }
+    // fetchMessagesAs sudah memanggil requireParticipant (403 bila bukan peserta)
+    const msg = ChatService.fetchMessagesAs(session, params.convId, params.messageId - 1, 1).find(
+      (m) => m.id === params.messageId
+    );
+    if (!msg) {
+      throw new AppError(ErrorCodes.ERR_NOT_PARTICIPANT, 'Pesan tidak ditemukan di percakapan ini', 404);
+    }
+    if (msg.status === 'CORRUPTED') {
+      throw new AppError(
+        ErrorCodes.ERR_INTEGRITY_FAILED,
+        'Pesan rusak/terdeteksi dimanipulasi, tidak dapat ditandai',
+        409
+      );
+    }
+    return VaultService.markImportant({
+      messageId: msg.id,
+      category,
+      plainContent: msg.plaintext ?? '',
+      markedBy: session.username,
+      convId: params.convId,
+    });
   }
 
   /**

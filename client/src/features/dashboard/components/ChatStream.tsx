@@ -2,13 +2,28 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ChatMessageItem } from '../types/dashboard.types';
+import { ChatMessageItem, ImportantCategory } from '../types/dashboard.types';
+import { MarkControl } from './MarkControl';
 
 interface ChatStreamProps {
   messages: ChatMessageItem[];
+  /** messageId → kategori pesan penting */
+  marks?: Record<number, ImportantCategory>;
+  /** Hanya dosen pembimbing (Ref: FR-VAULT-01) */
+  canMark?: boolean;
+  onMark?: (messageId: number, category: ImportantCategory) => void;
 }
 
-export function ChatStream({ messages }: ChatStreamProps) {
+export function ChatStream({ messages, marks = {}, canMark = false, onMark }: ChatStreamProps) {
+  const mark = (id: string | number, align: 'left' | 'right') => (
+    <MarkControl
+      category={marks[Number(id)]}
+      canMark={canMark}
+      onSelect={(c) => onMark?.(Number(id), c)}
+      align={align}
+    />
+  );
+
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-5">
       {/* SYSTEM TIME ANCHOR */}
@@ -83,6 +98,7 @@ export function ChatStream({ messages }: ChatStreamProps) {
                       {msg.statusIcon || 'done_all'}
                     </span>
                     <span>{msg.statusText}</span>
+                    {mark(msg.id, 'right')}
                   </div>
                 )}
               </div>
@@ -103,14 +119,15 @@ export function ChatStream({ messages }: ChatStreamProps) {
                 <p className="whitespace-pre-line">{msg.content}</p>
               </div>
 
-              {msg.signatureVerified && (
+              {(msg.signatureVerified || msg.statusText) && (
                 <div className="flex items-center gap-1.5 text-[10px] font-mono text-text-muted px-1">
                   <span className="flex items-center gap-1 text-primary">
                     <span className="material-symbols-outlined text-xs">
-                      verified_user
+                      {msg.statusIcon || 'verified_user'}
                     </span>
                     <span>{msg.statusText || 'Tanda Tangan Kunci Dosen Valid'}</span>
                   </span>
+                  {mark(msg.id, 'left')}
                 </div>
               )}
             </div>
