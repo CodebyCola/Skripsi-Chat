@@ -17,6 +17,18 @@ import type { Session } from './session.service.ts';
 
 const CATEGORIES = ['ACC', 'REVISI', 'JADWAL_SIDANG', 'LAINNYA'] as const;
 
+interface ImportantRow {
+  id: number;
+  convId: number;
+  messageId: number;
+  category: 'ACC' | 'REVISI' | 'JADWAL_SIDANG' | 'LAINNYA';
+  contentEnc: string;
+  nonceHex: string;
+  authTagHex: string;
+  markedBy: string;
+  markedAt: string;
+}
+
 export interface ImportantMessageRecord {
   id: number;
   convId: number;
@@ -157,19 +169,12 @@ export class VaultService {
     const query = convId
       ? 'SELECT * FROM ImportantMessage WHERE convId = ? ORDER BY id DESC'
       : 'SELECT * FROM ImportantMessage ORDER BY id DESC';
+    const rows = (convId ? db.prepare(query).all(convId) : db.prepare(query).all()) as unknown as ImportantRow[];
+    return VaultService.decryptRows(rows);
+  }
 
-    const rows = (convId ? db.prepare(query).all(convId) : db.prepare(query).all()) as Array<{
-      id: number;
-      convId: number;
-      messageId: number;
-      category: 'ACC' | 'REVISI' | 'JADWAL_SIDANG' | 'LAINNYA';
-      contentEnc: string;
-      nonceHex: string;
-      authTagHex: string;
-      markedBy: string;
-      markedAt: string;
-    }>;
-
+  /** Dekripsi baris ImportantMessage dengan K_master_db (AAD terikat ke messageId) */
+  private static decryptRows(rows: ImportantRow[]): ImportantMessageRecord[] {
     const masterKey = KeysService.loadMasterDbKey();
 
     return rows.map((r) => {
@@ -202,6 +207,41 @@ export class VaultService {
   }
 
   /**
+   * Ref: FR-VAULT-03, FR-AUTH-08 — versi berbasis sesi.
+   * Hanya peserta (mahasiswa/dosen). Dengan `convId`: wajib peserta percakapan itu.
+   * Tanpa `convId`: gabungan semua percakapan milik pemilik sesi.
+   */
+  static listImportantFor(session: Session, convId?: number): ImportantMessageRecord[] {
+    if (session.role !== 'MAHASISWA' && session.role !== 'DOSEN_PEMBIMBING') {
+      throw new AppError(
+        ErrorCodes.ERR_FORBIDDEN,
+        'Peran Anda tidak memiliki akses ke pesan penting',
+        403
+      );
+    }
+    if (convId !== undefined) {
+      if (!Number.isInteger(convId) || convId <= 0) {
+        throw new AppError(ErrorCodes.ERR_AUTH_INVALID, 'convId tidak valid', 400);
+      }
+      ChatService.requireParticipant(session, convId);
+      return VaultService.listImportant(convId);
+    }
+
+    const convIds = (
+      db
+        .prepare('SELECT id FROM Conversation WHERE (studentId = ? OR lecturerId = ?) AND isActive = 1')
+        .all(session.userId, session.userId) as Array<{ id: number }>
+    ).map((c) => c.id);
+    if (convIds.length === 0) return [];
+
+    const marks = convIds.map(() => '?').join(',');
+    const rows = db
+      .prepare(`SELECT * FROM ImportantMessage WHERE convId IN (${marks}) ORDER BY id DESC`)
+      .all(...convIds) as unknown as ImportantRow[];
+    return VaultService.decryptRows(rows);
+  }
+
+  /**
    * FR-VAULT-04: Menghapus tanda penting pada pesan
    */
   static unmarkImportant(messageId: number, actor: string): boolean {
@@ -217,5 +257,44 @@ export class VaultService {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Ref: FR-VAULT-04, FR-AUTH-08 — versi berbasis sesi.
+   * Hanya dosen peserta percakapan; `actor` audit = pemilik sesi.
+   */
+  static unmarkImportantAs(session: Session, messageId: number): { success: boolean } {
+    if (session.role !== 'DOSEN_PEMBIMBING') {
+      throw new AppError(
+        ErrorCodes.ERR_FORBIDDEN,
+        'Hanya dosen pembimbing yang dapat mencabut tanda penting',
+        403
+      );
+    }
+    if (!Number.isInteger(messageId) || messageId <= 0) {
+      throw new AppError(ErrorCodes.ERR_AUTH_INVALID, 'messageId tidak valid', 400);
+    }
+    const row = db
+      .prepare('SELECT convId FROM ImportantMessage WHERE messageId = ?')
+      .get(messageId) as { convId: number } | undefined;
+    if (!row) {
+      throw new AppError(ErrorCodes.ERR_NOT_PARTICIPANT, 'Pesan penting tidak ditemukan', 404);
+    }
+    // 403 bila dosen bukan peserta percakapan pemilik pesan ini
+    ChatService.requireParticipant(session, row.convId);
+
+    const res = db
+      .prepare('DELETE FROM ImportantMessage WHERE messageId = ? AND convId = ?')
+      .run(messageId, row.convId);
+    if (res.changes > 0) {
+      AuditService.log({
+        actorId: session.username,
+        action: 'UNMARK_IMPORTANT',
+        targetType: 'MESSAGE',
+        targetId: messageId,
+        result: 'SUCCESS',
+      });
+    }
+    return { success: res.changes > 0 };
   }
 }

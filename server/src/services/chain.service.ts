@@ -14,12 +14,15 @@ import { db } from '../database/connection.ts';
 import {
   canonicalJson,
   signData,
+  validateBlockchain,
   verifyDataSignature,
   type BlockRecord,
 } from '../crypto/4_blockchain.ts';
+import { decryptDatabaseColumn } from '../crypto/3_dbEncryption.ts';
+import type { Session } from './session.service.ts';
 import { KeysService } from './keys.service.ts';
 import { AuditService } from './audit.service.ts';
-import { CHAIN_DIFFICULTY } from '../config/index.ts';
+import { CHAIN_DIFFICULTY, MAX_FILE_MB } from '../config/index.ts';
 import { AppError, ErrorCodes } from '../config/errors.ts';
 
 export type AcademicAssetType = 'GRADE' | 'CERTIFICATE' | 'DIPLOMA' | 'THESIS_ACC' | 'DRAFT_SUBMISSION';
@@ -41,11 +44,17 @@ export interface VerificationResult {
   assetType?: string;
   title?: string;
   studentId?: string;
+  studentName?: string;
   issuerId?: string;
+  issuerName?: string;
   docHash?: string;
   issuedAt?: string;
   signatureValid?: boolean;
 }
+
+/** Aset yang boleh diterbitkan dosen (FR-CHAIN-02); DRAFT_SUBMISSION dicatat oleh mahasiswa. */
+const ISSUABLE_TYPES = ['GRADE', 'CERTIFICATE', 'DIPLOMA', 'THESIS_ACC'] as const;
+const MAX_TITLE_CHARS = 200;
 
 export class ChainService {
   /**
@@ -87,16 +96,14 @@ export class ChainService {
     const canonicalPayloadString = canonicalJson(dataPayload);
 
     // 3. Tanda Tangani Payload dengan Private Key Dosen (RSA-PSS SHA-256)
-    let signature = '';
-    if (params.issuerPrivateKeyPem) {
-      signature = signData(canonicalPayloadString, params.issuerPrivateKeyPem);
-    } else {
-      // Jika private key tidak diberikan langsung, ambil keypair dosen jika ada di DB
-      const user = db
-        .prepare('SELECT privateKeyEnc FROM User WHERE username = ?')
-        .get(params.issuerId) as any;
-      signature = crypto.randomBytes(64).toString('base64');
+    if (!params.issuerPrivateKeyPem) {
+      throw new AppError(
+        ErrorCodes.ERR_SIGNATURE_INVALID,
+        'Private key penerbit diperlukan untuk menandatangani aset',
+        400
+      );
     }
+    const signature = signData(canonicalPayloadString, params.issuerPrivateKeyPem);
 
     // 4. Mining Proof of Work (PoW) pada Block Baru
     const lastBlock = db
@@ -241,6 +248,13 @@ export class ChainService {
       );
     }
 
+    const nameOf = (username: string): string | undefined => {
+      const u = db.prepare('SELECT fullNameEncrypted FROM User WHERE username = ?').get(username) as
+        | { fullNameEncrypted?: string }
+        | undefined;
+      return u?.fullNameEncrypted ? decryptDatabaseColumn(u.fullNameEncrypted) : undefined;
+    };
+
     return {
       status: 'AUTHENTIC',
       message: 'ASLI: Dokumen terverifikasi sah dan tercatat pada Blockchain Ledger.',
@@ -248,7 +262,9 @@ export class ChainService {
       assetType: asset.assetType,
       title: asset.title,
       studentId: asset.studentId,
+      studentName: nameOf(asset.studentId),
       issuerId: asset.issuerId,
+      issuerName: nameOf(asset.issuerId),
       docHash: asset.docHash,
       issuedAt: asset.issuedAt,
       signatureValid,
@@ -256,30 +272,26 @@ export class ChainService {
   }
 
   /**
-   * FR-CHAIN-04: Validasi Seluruh Rantai Blok (Hash, Proof of Work, Links)
+   * FR-CHAIN-04: Validasi Seluruh Rantai Blok (hash dihitung ulang, PoW, tautan previousHash).
+   * Tanda tangan penerbit dilaporkan per dokumen lewat `signatureValid` pada verifyDocument.
    */
-  static validateChain(): { isValid: boolean; totalBlocks: number; corruptedIndex: number | null } {
+  static validateChain(): {
+    isValid: boolean;
+    totalBlocks: number;
+    corruptedIndex: number | null;
+    reason?: string;
+  } {
     const blocks = db
       .prepare('SELECT * FROM BlockchainLedger ORDER BY "index" ASC')
-      .all() as any[];
-
-    const powPrefix = '0'.repeat(CHAIN_DIFFICULTY);
-
-    for (let i = 0; i < blocks.length; i++) {
-      const b = blocks[i];
-      const prevExpected = i === 0 ? '0'.repeat(64) : blocks[i - 1].hash;
-
-      if (b.previousHash !== prevExpected) {
-        return { isValid: false, totalBlocks: blocks.length, corruptedIndex: b.index };
-      }
-
-      // Validasi Proof of Work
-      if (!b.hash.startsWith(powPrefix) && !b.hash.startsWith('00')) {
-        return { isValid: false, totalBlocks: blocks.length, corruptedIndex: b.index };
-      }
-    }
-
-    return { isValid: true, totalBlocks: blocks.length, corruptedIndex: null };
+      .all() as unknown as BlockRecord[];
+    const result = validateBlockchain(blocks);
+    const bad = result.details.find((d) => !d.isValid);
+    return {
+      isValid: result.isChainValid,
+      totalBlocks: result.totalBlocks,
+      corruptedIndex: result.firstCorruptedIndex,
+      reason: bad?.errorReason,
+    };
   }
 
   /**
@@ -298,5 +310,160 @@ export class ChainService {
     return db
       .prepare('SELECT * FROM AcademicAsset WHERE issuerId = ? ORDER BY id DESC')
       .all(issuerId);
+  }
+
+  // ==========================================================================
+  // LAPISAN BERBASIS SESI (FR-AUTH-08) — identitas & kunci dari sesi, bukan dari body
+  // ==========================================================================
+
+  /** Dekode dokumen base64 / data URL; menolak kosong atau melebihi MAX_FILE_MB */
+  static decodeDocument(raw: unknown): Buffer {
+    if (typeof raw !== 'string' || raw.length === 0) {
+      throw new AppError(ErrorCodes.ERR_AUTH_INVALID, 'Dokumen wajib diunggah', 400);
+    }
+    const buf = Buffer.from(raw.includes(',') ? raw.split(',')[1] : raw, 'base64');
+    if (buf.length === 0) {
+      throw new AppError(ErrorCodes.ERR_AUTH_INVALID, 'Dokumen kosong', 400);
+    }
+    if (buf.length > MAX_FILE_MB * 1024 * 1024) {
+      throw new AppError(
+        ErrorCodes.ERR_FILE_TOO_LARGE,
+        `Ukuran dokumen melebihi batas ${MAX_FILE_MB} MB`,
+        400
+      );
+    }
+    return buf;
+  }
+
+  private static withNames(rows: any[]) {
+    return rows.map(({ studentNameEnc, issuerNameEnc, ...a }) => ({
+      ...a,
+      studentName: studentNameEnc ? decryptDatabaseColumn(studentNameEnc) : a.studentId,
+      issuerName: issuerNameEnc ? decryptDatabaseColumn(issuerNameEnc) : a.issuerId,
+    }));
+  }
+
+  private static isSupervisedBy(session: Session, studentUsername: string): boolean {
+    const row = db
+      .prepare(
+        `SELECT c.id FROM Conversation c JOIN User s ON s.id = c.studentId
+         WHERE s.username = ? AND c.lecturerId = ? AND c.isActive = 1`
+      )
+      .get(studentUsername, session.userId);
+    return !!row;
+  }
+
+  /**
+   * Ref: FR-CHAIN-02, 03, 08 — hanya dosen; mahasiswa harus bimbingan dosen tersebut;
+   * penerbit & private key diambil dari sesi (tidak pernah dari body).
+   */
+  static issueAssetAs(
+    session: Session,
+    params: { assetType: unknown; studentId: unknown; title: unknown; documentBase64: unknown }
+  ) {
+    if (session.role !== 'DOSEN_PEMBIMBING') {
+      throw new AppError(
+        ErrorCodes.ERR_FORBIDDEN,
+        'Hanya dosen pembimbing yang dapat menerbitkan aset akademik',
+        403
+      );
+    }
+    const assetType = String(params.assetType ?? '') as AcademicAssetType;
+    if (!(ISSUABLE_TYPES as readonly string[]).includes(assetType)) {
+      throw new AppError(ErrorCodes.ERR_AUTH_INVALID, 'Tipe aset tidak valid', 400);
+    }
+    const title = String(params.title ?? '').trim();
+    if (!title || title.length > MAX_TITLE_CHARS) {
+      throw new AppError(
+        ErrorCodes.ERR_AUTH_INVALID,
+        `Judul wajib diisi (maks. ${MAX_TITLE_CHARS} karakter)`,
+        400
+      );
+    }
+    const studentUsername = String(params.studentId ?? '');
+    const student = db
+      .prepare("SELECT username FROM User WHERE username = ? AND role = 'MAHASISWA' AND isActive = 1")
+      .get(studentUsername) as { username: string } | undefined;
+    if (!student || !ChainService.isSupervisedBy(session, student.username)) {
+      throw new AppError(
+        ErrorCodes.ERR_NOT_PARTICIPANT,
+        'Mahasiswa tidak ditemukan atau bukan bimbingan Anda',
+        403
+      );
+    }
+    const documentBuffer = ChainService.decodeDocument(params.documentBase64);
+    if (!session.privateKeyPem) {
+      throw new AppError(
+        ErrorCodes.ERR_KEY_UNLOCK_FAILED,
+        'Akun ini belum memiliki keypair. Minta admin melakukan provisioning akun.',
+        409
+      );
+    }
+    return ChainService.issueAsset({
+      assetType,
+      studentId: student.username,
+      issuerId: session.username,
+      issuerPrivateKeyPem: session.privateKeyPem,
+      documentBuffer,
+      title,
+    });
+  }
+
+  /** Ref: FR-CHAIN-05 — semua peran yang login boleh memverifikasi dokumen */
+  static verifyDocumentFor(_session: Session, documentBase64: unknown): VerificationResult {
+    return ChainService.verifyDocument(ChainService.decodeDocument(documentBase64));
+  }
+
+  /**
+   * Ref: FR-CHAIN-06 — mahasiswa hanya miliknya sendiri; dosen hanya mahasiswa bimbingannya;
+   * admin ditolak.
+   */
+  static getStudentAssetsFor(session: Session, studentId?: string) {
+    let target: string;
+    if (session.role === 'MAHASISWA') {
+      target = session.username;
+    } else if (session.role === 'DOSEN_PEMBIMBING') {
+      target = String(studentId ?? '');
+      if (!target || !ChainService.isSupervisedBy(session, target)) {
+        throw new AppError(
+          ErrorCodes.ERR_NOT_PARTICIPANT,
+          'Mahasiswa tidak ditemukan atau bukan bimbingan Anda',
+          403
+        );
+      }
+    } else {
+      throw new AppError(ErrorCodes.ERR_FORBIDDEN, 'Peran Anda tidak memiliki akses ke aset mahasiswa', 403);
+    }
+    const rows = db
+      .prepare(
+        `SELECT a.*, s.fullNameEncrypted AS studentNameEnc, i.fullNameEncrypted AS issuerNameEnc
+         FROM AcademicAsset a
+         LEFT JOIN User s ON s.username = a.studentId
+         LEFT JOIN User i ON i.username = a.issuerId
+         WHERE a.studentId = ? ORDER BY a.id DESC`
+      )
+      .all(target);
+    return ChainService.withNames(rows);
+  }
+
+  /** Ref: UA-DSN-09 — riwayat penerbitan milik dosen pemilik sesi */
+  static listAssetsByIssuerFor(session: Session) {
+    if (session.role !== 'DOSEN_PEMBIMBING') {
+      throw new AppError(
+        ErrorCodes.ERR_FORBIDDEN,
+        'Hanya dosen pembimbing yang memiliki riwayat penerbitan',
+        403
+      );
+    }
+    const rows = db
+      .prepare(
+        `SELECT a.*, s.fullNameEncrypted AS studentNameEnc, i.fullNameEncrypted AS issuerNameEnc
+         FROM AcademicAsset a
+         LEFT JOIN User s ON s.username = a.studentId
+         LEFT JOIN User i ON i.username = a.issuerId
+         WHERE a.issuerId = ? ORDER BY a.id DESC`
+      )
+      .all(session.username);
+    return ChainService.withNames(rows);
   }
 }

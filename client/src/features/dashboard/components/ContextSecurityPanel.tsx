@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiRequest } from '@/lib/api';
-import { HashText, SecurityPill, type PillTone } from '@/components/ui';
+import { HashText, SecurityPill, StatusBadge, type PillTone } from '@/components/ui';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { formatRole } from '../utils';
 
@@ -22,6 +22,46 @@ const LAYERS: { label: string; algo: string }[] = [
 
 const POLL_MS = 10_000;
 
+interface DraftSummary {
+  originalName: string;
+  version: number;
+  status: string;
+  peerName: string;
+  createdAt: string;
+}
+
+interface PanelConversation {
+  id: number;
+  studentUsername: string | null;
+  studentFullName: string;
+  lecturerUsername: string | null;
+  lecturerFullName: string;
+}
+
+interface PanelFile {
+  originalName: string;
+  version: number;
+  status: string;
+  createdAt: string;
+}
+
+// Ref: FR-FILE-03/05 — draf terbaru di antara percakapan milik sesi (maks. 5 percakapan per pembukaan panel)
+async function loadLatestDraft(username: string): Promise<DraftSummary | null> {
+  const convs = await apiRequest<PanelConversation[]>('/api/chat/conversations');
+  let latest: DraftSummary | null = null;
+  for (const c of convs.slice(0, 5)) {
+    const files = await apiRequest<PanelFile[]>('/api/files/list', 'POST', { convId: c.id });
+    const iAmStudent = c.studentUsername === username;
+    const peerName = (iAmStudent ? c.lecturerFullName : c.studentFullName) || '—';
+    for (const f of files) {
+      if (!latest || new Date(f.createdAt) > new Date(latest.createdAt)) {
+        latest = { originalName: f.originalName, version: f.version, status: f.status, peerName, createdAt: f.createdAt };
+      }
+    }
+  }
+  return latest;
+}
+
 interface ContextSecurityPanelProps {
   open: boolean;
   onClose: () => void;
@@ -33,6 +73,10 @@ export function ContextSecurityPanel({ open, onClose, children }: ContextSecurit
   const { user } = useCurrentUser();
   const [dongle, setDongle] = useState<DongleStatusResponse | null>(null);
   const [offline, setOffline] = useState(false);
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const [draft, setDraft] = useState<DraftSummary | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const username = user?.username;
 
   const refresh = useCallback(async () => {
     try {
@@ -49,6 +93,23 @@ export function ContextSecurityPanel({ open, onClose, children }: ContextSecurit
     const t = setInterval(refresh, POLL_MS);
     return () => clearInterval(t);
   }, [open, refresh]);
+
+  // Sidik jari kunci & ringkasan draf: dimuat sekali tiap panel dibuka (bukan polling)
+  useEffect(() => {
+    if (!open || !username) return;
+    let cancelled = false;
+    setDraftLoaded(false);
+    apiRequest<{ fingerprint: string | null }>('/api/profile/key-fingerprint')
+      .then((r) => !cancelled && setFingerprint(r.fingerprint))
+      .catch(() => !cancelled && setFingerprint(null));
+    loadLatestDraft(username)
+      .then((d) => !cancelled && setDraft(d))
+      .catch(() => !cancelled && setDraft(null))
+      .finally(() => !cancelled && setDraftLoaded(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, username]);
 
   if (!open) return null;
 
@@ -90,6 +151,30 @@ export function ContextSecurityPanel({ open, onClose, children }: ContextSecurit
           <h3 className="text-[10px] font-medium tracking-wider uppercase text-text-muted">Identitas Sesi</h3>
           <p className="text-xs font-semibold text-text-dark truncate">{user?.fullName || user?.username || '—'}</p>
           <p className="text-[11px] text-text-secondary">{formatRole(user?.role)}</p>
+        </section>
+
+        <section className="flex flex-col gap-1.5">
+          <h3 className="text-[10px] font-medium tracking-wider uppercase text-text-muted">Fingerprint Kunci</h3>
+          <HashText value={fingerprint} head={12} tail={8} />
+          <p className="text-[11px] text-text-secondary">SHA-256 kunci publik RSA akun Anda.</p>
+        </section>
+
+        <section className="flex flex-col gap-1.5">
+          <h3 className="text-[10px] font-medium tracking-wider uppercase text-text-muted">Draf Aktif</h3>
+          {!draftLoaded ? (
+            <p className="text-[11px] text-text-secondary">Memuat…</p>
+          ) : draft ? (
+            <>
+              <p className="text-xs font-semibold text-text-dark truncate" title={draft.originalName}>{draft.originalName}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <SecurityPill>v{draft.version}</SecurityPill>
+                <StatusBadge status={draft.status} />
+              </div>
+              <p className="text-[11px] text-text-secondary truncate">Bimbingan dengan {draft.peerName}</p>
+            </>
+          ) : (
+            <p className="text-[11px] text-text-secondary">Belum ada berkas diunggah.</p>
+          )}
         </section>
 
         <section className="flex flex-col gap-2">
