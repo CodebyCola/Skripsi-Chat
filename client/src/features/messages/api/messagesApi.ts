@@ -1,30 +1,15 @@
 import { apiRequest } from '@/lib/api';
-import {
-  EncryptedMessageRecord,
-  EncryptMessagePayload,
-  EncryptionStages,
-} from '../types/messages.types';
+import { ImportantMessage } from '../types/messages.types';
 
-export async function fetchMessages(): Promise<EncryptedMessageRecord[]> {
-  return await apiRequest<EncryptedMessageRecord[]>('/api/messages');
+// Ref: FR-VAULT-03/04, FR-AUTH-08 — identitas dibawa token sesi (header Authorization), bukan body.
+
+/** Tanpa convId: server mengembalikan gabungan semua percakapan milik pemilik sesi. */
+export function listImportant(convId?: number): Promise<ImportantMessage[]> {
+  const qs = convId ? `?convId=${convId}` : '';
+  return apiRequest<ImportantMessage[]>(`/api/vault/important${qs}`);
 }
 
-export async function encryptAndSaveMessage(
-  payload: EncryptMessagePayload
-): Promise<{ success: boolean; encryptionStages: EncryptionStages }> {
-  return await apiRequest('/api/messages', 'POST', payload);
-}
-
-export async function decryptMessage(
-  id: number,
-  passphrase: string
-): Promise<{ plaintext: string }> {
-  return await apiRequest('/api/messages/decrypt', 'POST', { id, passphrase });
-}
-
-export async function deleteMessage(
-  id: number,
-  actor?: string
-): Promise<{ success: boolean; message: string; id: number }> {
-  return await apiRequest('/api/messages/delete', 'POST', { id, actor });
+/** Khusus dosen peserta percakapan; server menegakkan role & kepesertaan. */
+export function unmarkImportant(messageId: number): Promise<{ success: boolean }> {
+  return apiRequest('/api/vault/important/unmark', 'POST', { messageId });
 }

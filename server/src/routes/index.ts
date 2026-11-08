@@ -10,6 +10,7 @@ import { handleBlockchainRoutes } from './blockchain.routes.ts';
 import { handleVaultRoutes } from './vault.routes.ts';
 import { handleAdminRoutes } from './admin.routes.ts';
 import { handleChatRoutes } from './chat.routes.ts';
+import { handleProfileRoutes } from './profile.routes.ts';
 import { sendJson } from '../middlewares/error.middleware.ts';
 
 export function routeRequest(
@@ -57,6 +58,9 @@ export function routeRequest(
   // 8. Bimbingan Chat Routes (FR-CHAT-01..06)
   if (handleChatRoutes(req, res, pathname, method, urlObj)) return;
 
-  // 9. Not Found
+  // 9. Profil & sidik jari kunci sesi
+  if (handleProfileRoutes(req, res, pathname, method)) return;
+
+  // 10. Not Found
   sendJson(res, 404, { error: `Endpoint ${method} ${pathname} tidak ditemukan` });
 }
